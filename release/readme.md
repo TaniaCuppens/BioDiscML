@@ -32,6 +32,19 @@ includes consensus feature search, to visualize your results.
 
 Full manuscript: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6532608/
 
+## Design notes
+- The feature search modes are additive stepwise searches on the features 
+ranked by information gain (classification) or RELIEFF (regression): 
+F adds the features from the best ranked one, B runs the same additive search 
+from the lowest-ranked feature (it is not a backward elimination). FB and BF 
+add a backward step: after each added feature, the previously retained features 
+are removed one at a time if the model is not worse without them.
+- Feature ranking and selection use the whole training set. The cross validation 
+(10CV, LOOCV), repeated holdout (RH) and bootstrap (BS) scores computed on the 
+training set (TRAIN_* columns) are therefore optimistic. Only the scores on the 
+held-out test set (TEST_* columns, with sampling=true or a validationFile) are 
+unbiased estimates of the performance on new data.
+
 ## Requirements
 JAVA 8 (https://www.java.com/en/download/)
 
@@ -214,7 +227,7 @@ For each model, we perform various evaluations summarized in this table:
 | TRAIN_TEST_BS_MCC | Bootstrap Matthews Correlation Coefficient on merged Train and Test sets|
 | TRAIN_TEST_BS_MAE | Bootstrap Mean Absolute Error on merged Train and Test sets|
 | TRAIN_TEST_BS_BER | Bootstrap Balanced Error Rate on merged Train and Test sets|
-| TRAIN_TEST_BS_BER_BS.632+ | Bootstrap .632+ rule on merged Train and Test sets|
+| TRAIN_TEST_BS.632+ | Bootstrap .632+ rule on merged Train and Test sets|
 | AVG_BER | Average of all calculated Balanced Error Rates |
 | STD_BER | Standard deviation of the calculated Balanced Error Rates|
 | AVG_MAE | Average of all calculated Mean Absolute Errors |
@@ -224,6 +237,17 @@ For each model, we perform various evaluations summarized in this table:
 | AttributeList | Selected features. Use the option -bestmodel to generate a report and get the features' full names|
 
 Note that all columns refering to a test set will be empty if no test set have been generated or provided
+
+For a binary class, the sensitivity (SEN), specificity (SPE), FPR, FNR, PPV, FDR, 
+F-score and AUPRC are those of the positive class (option positiveClass, see 
+config.conf): SEN = TP/(TP+FN), SPE = TN/(TN+FP), PPV = TP/(TP+FP), 
+FDR = 1 - PPV. With more than two classes they are averages weighted by class 
+size (the weighted sensitivity is then equal to the accuracy). Before version 1.8.15, they were always class-weighted averages (for a 
+binary class, SEN was then equal to ACC).
+Repeated holdout (66/34 split) and bootstrap samples are stratified by class. 
+The .632+ columns are error rates (Efron and Tibshirani, 1997).
+All random number generators are seeded (option seed): two runs with the same 
+configuration give the same results.
 
 - {project_name}_d.{model_name}_{model_hyperparameters}_{feature_search_mode}.*details.txt
 
