@@ -154,7 +154,14 @@ public class AdaptDatasetToTraining {
             TableObject tbo = new TableObject(readTable(file, separator));
             //locate class
             if (tbo.containsClass(theClass)) {
-                classIndex = i;
+                if (classIndex == -1) {
+                    classIndex = i;
+                } else {
+                    // the class must not be used as a feature
+                    System.out.println("[warning] Class " + theClass + " also found in " + file
+                            + ". Using the one of " + files[classIndex] + ", ignoring this one");
+                    tbo.hmData.remove(theClass);
+                }
             }
             al_tables.add(tbo);
         }
@@ -252,12 +259,21 @@ public class AdaptDatasetToTraining {
             TreeMap<String, Integer> tm = new TreeMap<>();
             tm.putAll(al_tables.get(0).hmIDsList);
             int existing_spaces = 0;
+            int missingClassLabels = 0;
             for (String id : tm.keySet()) {
                 if (hm_ids.containsKey(id.toLowerCase()) && !id.equals(Main.mergingID.toLowerCase())) {
                     // if (hm_ids.containsKey(id) && !id.equals(Main.mergingID)) {
+                    String classe = myClass.get(al_tables.get(classIndex).getIdIndex(id)).trim();
+                    // an instance without class label can't be used (it would become a class of its own)
+                    if (classe.isEmpty() || classe.equals("?") || classe.equals("NA") || classe.equals("na")
+                            || classe.equals("N/A") || classe.equals("n/a")) {
+                        missingClassLabels++;
+                        continue;
+                    }
                     pw.print(id);
                     for (TableObject tbo : al_tables) {
-                        int idIndex = tbo.hmIDsList.get(id);
+                        // IDs are matched between files case-insensitively (see getCommonIds)
+                        int idIndex = tbo.getIdIndex(id);
                         for (String s : tbo.getSortedHmDataKeyset()) {
                             if (!Main.hmExcludedFeatures.containsKey(s)) { //if it is not a rejected feature
                                 // print values and replace , by .
@@ -270,7 +286,6 @@ public class AdaptDatasetToTraining {
                             }
                         }
                     }
-                    String classe = myClass.get(al_tables.get(classIndex).hmIDsList.get(id));
                     if (classe.contains(" ")) {
                         existing_spaces++;
                     }
@@ -282,6 +297,9 @@ public class AdaptDatasetToTraining {
             }
             if (existing_spaces > 0) {
                 System.out.println("Spaces detected in class label. They were replaced by _");
+            }
+            if (missingClassLabels > 0) {
+                System.out.println("[warning] " + missingClassLabels + " instance(s) without class label (empty, ?, NA or N/A) ignored");
             }
             pw.flush();
 
@@ -309,19 +327,52 @@ public class AdaptDatasetToTraining {
 
             //read train
             BufferedReader br = new BufferedReader(new FileReader(trainFile));
-
-            while (br.ready()) {
-                pw.println(br.readLine());
+            String trainHeader[] = br.readLine().split("\t");
+            pw.println(String.join("\t", trainHeader));
+            cpt++;
+            String line;
+            while ((line = br.readLine()) != null) {
+                pw.println(line);
                 cpt++;
             }
             br.close();
             pw.flush();
 
-            //read test
+            //read test. Its columns are matched to the train columns by name
             br = new BufferedReader(new FileReader(testFile));
-            br.readLine(); // skip header
-            while (br.ready()) {
-                pw.println(br.readLine());
+            String testHeader[] = br.readLine().split("\t");
+            HashMap<String, Integer> hmTestColumns = new HashMap<>();
+            for (int i = 0; i < testHeader.length; i++) {
+                hmTestColumns.put(testHeader[i], i);
+            }
+            int missingColumns = 0;
+            for (String column : trainHeader) {
+                if (!hmTestColumns.containsKey(column)) {
+                    missingColumns++;
+                }
+            }
+            if (missingColumns > 0) {
+                System.out.println("[warning] " + missingColumns + " column(s) of the training file missing from the "
+                        + "validation file(s), filled with missing values (?)");
+            }
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                String values[] = line.split("\t");
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < trainHeader.length; i++) {
+                    Integer index = hmTestColumns.get(trainHeader[i]);
+                    if (i > 0) {
+                        sb.append("\t");
+                    }
+                    if (index != null && index < values.length) {
+                        sb.append(values[index]);
+                    } else {
+                        sb.append("?");
+                    }
+                }
+                pw.println(sb);
             }
             br.close();
             pw.close();

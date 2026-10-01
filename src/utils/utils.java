@@ -44,6 +44,10 @@ public class utils {
                     al.add("");
                 }
             }
+            if (hmData.containsKey(header)) {
+                System.out.println("[warning] Duplicated column name " + header
+                        + ": only its last occurrence is kept. Column names must be unique");
+            }
             hmData.put(header, al);
         }
         return hmData;
@@ -289,6 +293,23 @@ public class utils {
 
         public boolean containsClass(String theClass) {
             return hmData.containsKey(theClass);
+        }
+
+        /**
+         * @param id
+         * @return row index of the ID, matched case-insensitively if it is
+         * not found as is
+         */
+        public Integer getIdIndex(String id) {
+            Integer index = hmIDsList.get(id);
+            if (index == null) {
+                for (String s : hmIDsList.keySet()) {
+                    if (s.equalsIgnoreCase(id)) {
+                        return hmIDsList.get(s);
+                    }
+                }
+            }
+            return index;
         }
 
         public int getIdIndex(ArrayList<String[]> altable) {
