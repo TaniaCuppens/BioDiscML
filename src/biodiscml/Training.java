@@ -454,6 +454,9 @@ public class Training {
                 IntStream.range(0, alClassifiers.size()).parallel().forEach((i) -> {
                     String[] classif = alClassifiers.get(i);
                     String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    if (s == null) {
+                        s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
+                    }
                     if (!s.toLowerCase().contains("error") || Main.printFailedModels) {
                         outputs[i] = s;
                         synchronized (pw) {
@@ -467,6 +470,9 @@ public class Training {
             } else {
                 alClassifiers.stream().map((classif) -> {
                     String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    if (s == null) {
+                        s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
+                    }
                     if (!s.toLowerCase().contains("error")) {
                         pw.println(s);
                     } else if (Main.printFailedModels) {
@@ -597,7 +603,6 @@ public class Training {
 
         try {
             Object o = null;
-            int numberOfAttributes = 0;
             double previousMeasureToMaximize = -1000.0;
             double previousMeasureToMinimize = 1000.0;
             ArrayList<Integer> alAttributes = new ArrayList<>();
@@ -680,102 +685,116 @@ public class Training {
                 }
 
                 for (int i = 0; i < ao.alAttributes.size(); i++) { //from ID to class (excluded)
+                    // the model is full: no other feature can be added
+                    if (ao.retainedAttributesOnly.size() >= Main.maxNumberOfFeaturesInModel) {
+                        break;
+                    }
                     cpt++;
                     //add new attribute to the set of retainedAttributes
                     ao.addNewAttributeToRetainedAttributes(i);
                     Weka_module.ClassificationResultsObject oldcr = cr;
+                    Weka_module.RegressionResultsObject oldrr = rr;
                     //do feature selection by forward(-backward)
-                    if (ao.retainedAttributesOnly.size() <= Main.maxNumberOfFeaturesInModel) {
-                        o = weka.trainClassifier(classifier, classifier_options,
-                                ao.getRetainedAttributesIdClassInString(), isClassification, 10);
+                    o = weka.trainClassifier(classifier, classifier_options,
+                            ao.getRetainedAttributesIdClassInString(), isClassification, 10);
 
-                        if (o instanceof String || o == null) {
-                            return (String) o;
-                        } else if (isClassification) {
-                            cr = (Weka_module.ClassificationResultsObject) o;
-                        } else {
-                            rr = (Weka_module.RegressionResultsObject) o;
-                        }
+                    if (o == null) {
+                        return "ERROR\t" + classifier + " " + classifier_options + " | " + searchMethod + " | training failed";
+                    } else if (o instanceof String) {
+                        return (String) o;
+                    } else if (isClassification) {
+                        cr = (Weka_module.ClassificationResultsObject) o;
+                    } else {
+                        rr = (Weka_module.RegressionResultsObject) o;
+                    }
 
-                        //choose what we want to maximize or minimize (such as error rates)
-                        //this will crash if model had an error
-                        double currentMeasure = getValueToMaximize(valueToMaximizeOrMinimize, cr, rr);
+                    //choose what we want to maximize or minimize (such as error rates)
+                    double currentMeasure = getValueToMaximize(valueToMaximizeOrMinimize, cr, rr);
 
-                        //Report results
-                        boolean modelIsImproved = false;
-                        //i<2 is to avoid return no attribute at all
-                        // test if model is improved
-                        if (minimize) {
-                            modelIsImproved = (i < 2 && currentMeasure <= previousMeasureToMinimize) || currentMeasure < previousMeasureToMinimize;
-                        } else {
-                            modelIsImproved = (i < 2 && currentMeasure >= previousMeasureToMaximize) || currentMeasure > previousMeasureToMaximize;
-                        }
+                    //Report results
+                    boolean modelIsImproved = false;
+                    //i<2 is to avoid return no attribute at all
+                    // test if model is improved
+                    if (minimize) {
+                        modelIsImproved = (i < 2 && currentMeasure <= previousMeasureToMinimize) || currentMeasure < previousMeasureToMinimize;
+                    } else {
+                        modelIsImproved = (i < 2 && currentMeasure >= previousMeasureToMaximize) || currentMeasure > previousMeasureToMaximize;
+                    }
 
-                        if (modelIsImproved) {
-                            if (!minimize) {
-                                previousMeasureToMaximize = currentMeasure;
-                            } else {
-                                previousMeasureToMinimize = currentMeasure;
-                            }
+                    if (modelIsImproved) {
+                        // do backward OR forward, check if we have an improvement if we remove previously chosen features
+                        // (all of them except the one we just added)
+                        if (doForwardBackward_OR_BackwardForward && ao.retainedAttributesOnly.size() > 1) {
+                            int j = 0;
+                            while (j < ao.retainedAttributesOnly.size() - 1) {
+                                ArrayList<Integer> attributesToTestInBackward = new ArrayList<>(ao.retainedAttributesOnly);
+                                attributesToTestInBackward.remove(j);
+                                String featuresToTest = ao.ID + "," + utils.arrayToString(attributesToTestInBackward, ",") + "," + ao.Class;
+                                //train
+                                Object ob = weka.trainClassifier(classifier, classifier_options,
+                                        featuresToTest, isClassification, 10);
+                                if (ob == null || ob instanceof String) {
+                                    // cannot evaluate the model without this feature: keep it
+                                    j++;
+                                    continue;
+                                }
+                                Weka_module.ClassificationResultsObject crBackward = null;
+                                Weka_module.RegressionResultsObject rrBackward = null;
+                                if (isClassification) {
+                                    crBackward = (Weka_module.ClassificationResultsObject) ob;
+                                } else {
+                                    rrBackward = (Weka_module.RegressionResultsObject) ob;
+                                }
+                                //get measure
+                                double measureWithRemovedFeature = getValueToMaximize(valueToMaximizeOrMinimize, crBackward, rrBackward);
+                                //check if we have improvement (or the same performance with one feature less)
+                                boolean removalIsBetter;
+                                if (minimize) {
+                                    removalIsBetter = measureWithRemovedFeature <= currentMeasure;
+                                } else {
+                                    removalIsBetter = measureWithRemovedFeature >= currentMeasure;
+                                }
 
-                            // do backward OR forward, check if we have an improvement if we remove previously chosen features
-                            if (doForwardBackward_OR_BackwardForward && numberOfAttributes > 1) {
-                                oldcr = cr;
-                                ArrayList<Integer> attributesToTestInBackward = ao.getRetainedAttributesIdClassInArrayList();
-                                for (int j = 1/*skip ID*/;
-                                        j < attributesToTestInBackward.size() - 2/*skip last attribute we added by forward and class*/; j++) {
-                                    attributesToTestInBackward.remove(j);
-
-                                    String featuresToTest = utils.arrayToString(attributesToTestInBackward, ",");
-                                    //train
-                                    if (isClassification) {
-                                        cr = (Weka_module.ClassificationResultsObject) weka.trainClassifier(classifier, classifier_options,
-                                                featuresToTest, isClassification, 10);
-                                    } else {
-                                        rr = (Weka_module.RegressionResultsObject) weka.trainClassifier(classifier, classifier_options,
-                                                featuresToTest, isClassification, 10);
-                                    }
-                                    //get measure
-                                    double measureWithRemovedFeature = getValueToMaximize(valueToMaximizeOrMinimize, cr, rr);
-                                    //check if we have improvement
-                                    if (minimize) {
-                                        modelIsImproved = (measureWithRemovedFeature <= currentMeasure)
-                                                || measureWithRemovedFeature < currentMeasure;
-                                    } else {
-                                        modelIsImproved = (measureWithRemovedFeature >= currentMeasure)
-                                                || measureWithRemovedFeature > currentMeasure;
-                                    }
-
-                                    if (modelIsImproved) {
-                                        //if model is improved definitly discard feature is improvement
-                                        ao.changeRetainedAttributes(featuresToTest);
-                                        oldcr = cr;
-                                        currentMeasure = measureWithRemovedFeature;
-                                    } else {
-                                        //restore the feature
-                                        attributesToTestInBackward = ao.getRetainedAttributesIdClassInArrayList();
-                                        cr = oldcr;
-                                    }
+                                if (removalIsBetter) {
+                                    //definitively discard the feature. The next one is now at index j
+                                    ao.retainedAttributesOnly = attributesToTestInBackward;
+                                    cr = crBackward;
+                                    rr = rrBackward;
+                                    o = ob;
+                                    currentMeasure = measureWithRemovedFeature;
+                                } else {
+                                    //keep the feature, test the next one
+                                    j++;
                                 }
                             }
-//
-                            //modify results summary output
-                            //only for DEBUG purposes
-                            if (isClassification) {
-                                lastOutput = out
-                                        + "\t" + cr.numberOfFeatures + "\t" + cr.toString() + "\t" + ao.getRetainedAttributesIdClassInString();
+                        }
+                        if (!minimize) {
+                            previousMeasureToMaximize = currentMeasure;
+                        } else {
+                            previousMeasureToMinimize = currentMeasure;
+                        }
 
-                            } else {
-                                lastOutput = out
-                                        + "\t" + rr.numberOfFeatures + "\t" + rr.toString() + "\t" + ao.getRetainedAttributesIdClassInString();
-                            }
+                        //modify results summary output
+                        //only for DEBUG purposes
+                        if (isClassification) {
+                            lastOutput = out
+                                    + "\t" + cr.numberOfFeatures + "\t" + cr.toString() + "\t" + ao.getRetainedAttributesIdClassInString();
 
                         } else {
-                            //back to previous attribute if no improvement with the new attribute and go to the next
-                            ao.retainedAttributesOnly.remove(ao.retainedAttributesOnly.size() - 1);
-                            cr = oldcr;
+                            lastOutput = out
+                                    + "\t" + rr.numberOfFeatures + "\t" + rr.toString() + "\t" + ao.getRetainedAttributesIdClassInString();
                         }
+
+                    } else {
+                        //back to previous attribute if no improvement with the new attribute and go to the next
+                        ao.retainedAttributesOnly.remove(ao.retainedAttributesOnly.size() - 1);
+                        cr = oldcr;
+                        rr = oldrr;
                     }
+                }
+                // no feature could be retained (e.g. undefined measure)
+                if ((isClassification && cr == null) || (!isClassification && rr == null)) {
+                    o = null;
                 }
             }
 
@@ -804,6 +823,12 @@ public class Training {
                         if (Main.debug) {
                             System.err.println("[error] LOOCV failed");
                         }
+                        // empty columns, to keep the following columns aligned
+                        if (isClassification) {
+                            loocvOut = "\t" + "\t" + "\t" + "\t" + "\t" + "\t" + "\t";
+                        } else {
+                            loocvOut = "\t" + "\t" + "\t" + "\t";
+                        }
                     } else if (isClassification) {
                         crLoocv = (Weka_module.ClassificationResultsObject) oLoocv;
                         loocvOut = crLoocv.toStringShort();
@@ -830,6 +855,9 @@ public class Training {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka.trainClassifierHoldOutValidation(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrain.alAUCs.add(Double.valueOf(cro.AUC));
                             eproRHTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproRHTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -845,6 +873,9 @@ public class Training {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka.trainClassifierHoldOutValidation(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrain.alCCs.add(Double.valueOf(rro.CC));
                             eproRHTrain.alMAEs.add(Double.valueOf(rro.MAE));
                             eproRHTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -870,6 +901,9 @@ public class Training {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka.trainClassifierBootstrap(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrain.alAUCs.add(Double.valueOf(cro.AUC));
                             eproBSTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproBSTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -885,6 +919,9 @@ public class Training {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka.trainClassifierBootstrap(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
 
                             eproBSTrain.alCCs.add(Double.valueOf(rro.CC));
                             eproBSTrain.alMAEs.add(Double.valueOf(rro.MAE));
@@ -970,6 +1007,9 @@ public class Training {
                                         = (Weka_module.ClassificationResultsObject) weka2.trainClassifierHoldOutValidation(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (cro == null) {
+                                    continue; // failed repetition
+                                }
 
                                 eproRHTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                                 eproRHTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
@@ -988,6 +1028,9 @@ public class Training {
                                         = (Weka_module.RegressionResultsObject) weka2.trainClassifierHoldOutValidation(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (rro == null) {
+                                    continue; // failed repetition
+                                }
                                 eproRHTrainTest.alCCs.add(Double.valueOf(rro.CC));
                                 eproRHTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                                 eproRHTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -1023,6 +1066,9 @@ public class Training {
                                         = (Weka_module.ClassificationResultsObject) weka2.trainClassifierBootstrap(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (cro == null) {
+                                    continue; // failed repetition
+                                }
 
                                 eproBSTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                                 eproBSTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
@@ -1041,6 +1087,9 @@ public class Training {
                                         = (Weka_module.RegressionResultsObject) weka2.trainClassifierBootstrap(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (rro == null) {
+                                    continue; // failed repetition
+                                }
                                 eproBSTrainTest.alCCs.add(Double.valueOf(rro.CC));
                                 eproBSTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                                 eproBSTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -1381,7 +1430,7 @@ public class Training {
                 if (Main.debug) {
                     System.err.println(o);
                 }
-                if (o.toString().equals("null")) {
+                if (o == null) {
                     out += "\t " + classifier + " " + classifier_options + " | " + searchMethod + " | Error probably because of number of features inferior to topX";
                 }
             }
@@ -1545,24 +1594,6 @@ public class Training {
             }
             attributes += Class;
             return attributes;
-        }
-
-        private ArrayList getRetainedAttributesIdClassInArrayList() {
-            ArrayList<Integer> al = new ArrayList<>();
-            al.add(ID);
-            for (Integer retainedAttribute : retainedAttributesOnly) {
-                al.add(retainedAttribute);
-            }
-            al.add(Class);
-            return al;
-        }
-
-        private void changeRetainedAttributes(String featuresToTest) {
-            String features[] = featuresToTest.split(",");
-            retainedAttributesOnly = new ArrayList<>();
-            for (int i = 1; i < features.length - 1; i++) {//skip ID and class indexes
-                retainedAttributesOnly.add(Integer.valueOf(features[i]));
-            }
         }
 
         private String getAttributesIdClassInString() {
