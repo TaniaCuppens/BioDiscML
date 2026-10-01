@@ -67,35 +67,14 @@ public class BestModelSelectionAndReport {
         if (Main.combineModels) {
             bestOrCombine = "Combine ";
         }
-        String sign = " >= ";
-        boolean metricToMinimize = (Main.bestModelsSortingMetric.contains("RMSE")
-                || Main.bestModelsSortingMetric.contains("BER")
-                || Main.bestModelsSortingMetric.contains("FPR")
-                || Main.bestModelsSortingMetric.contains("FNR")
-                || Main.bestModelsSortingMetric.contains("FDR")
-                || Main.bestModelsSortingMetric.contains("MAE")
-                || Main.bestModelsSortingMetric.contains("RAE")
-                || Main.bestModelsSortingMetric.contains("RRSE"));
-        if (metricToMinimize) {
-            sign = " <= ";
-        }
-
-        System.out.println("## " + bestOrCombine + " models using " + Main.bestModelsSortingMetric + " as sorting metric.\n"
-                + "## Parameters: " + Main.numberOfBestModels + " best models and "
-                + Main.bestModelsSortingMetric + sign + Main.bestModelsSortingMetricThreshold);
-
         //Read results file
         boolean classification = type.equals("classification");
 
         try {
             BufferedReader br = new BufferedReader(new FileReader(predictionsResultsFile));
-            TreeMap<String, Object> tmModels = new TreeMap<>(); //<metric modelID, classification/regression Object>
+            ArrayList<RankedModel> alModels = new ArrayList<>(); //<metric, modelID, classification/regression Object>
             HashMap<String, Object> hmModels = new HashMap<>(); //<modelID, classification/regression Object>
 
-            //in case of RMSE or BER, we want the minimum value instead of the maximal one
-            if (!metricToMinimize) {
-                tmModels = new TreeMap<>(Collections.reverseOrder());
-            }
             String line = br.readLine();
 
             //fill header mapping
@@ -105,6 +84,10 @@ public class BestModelSelectionAndReport {
                 hmResultsHeaderNames.put(s, cpt);
                 hmResultsHeaderIndexes.put(cpt, s);
                 cpt++;
+                // the metric name is not case-sensitive (e.g. TRAIN_10CV_Fscore)
+                if (s.equalsIgnoreCase(Main.bestModelsSortingMetric)) {
+                    Main.bestModelsSortingMetric = s;
+                }
             }
             if (!hmResultsHeaderNames.containsKey(Main.bestModelsSortingMetric)) {
                 System.err.println("[error] " + Main.bestModelsSortingMetric + " column does not exist in the results file.");
@@ -117,6 +100,26 @@ public class BestModelSelectionAndReport {
 
             }
 
+            String sign = " >= ";
+            String metric = Main.bestModelsSortingMetric.toUpperCase();
+            //in case of error rates (RMSE, BER, .632+...), we want the minimum value instead of the maximal one
+            boolean metricToMinimize = (metric.contains("RMSE")
+                    || metric.contains("BER")
+                    || metric.contains("FPR")
+                    || metric.contains("FNR")
+                    || metric.contains("FDR")
+                    || metric.contains("MAE")
+                    || metric.contains("RAE")
+                    || metric.contains("RRSE")
+                    || metric.contains(".632"));
+            if (metricToMinimize) {
+                sign = " <= ";
+            }
+
+            System.out.println("## " + bestOrCombine + " models using " + Main.bestModelsSortingMetric + " as sorting metric.\n"
+                + "## Parameters: " + Main.numberOfBestModels + " best models and "
+                    + Main.bestModelsSortingMetric + sign + Main.bestModelsSortingMetricThreshold);
+
             //read results
             while (br.ready()) {
                 line = br.readLine();
@@ -124,8 +127,8 @@ public class BestModelSelectionAndReport {
                     if (classification) {
                         try {
                             classificationObject co = new classificationObject(line);
-                            tmModels.put(Double.valueOf(co.hmValues.get(Main.bestModelsSortingMetric)) + " " + co.hmValues.get("ID"), co);
                             hmModels.put(co.hmValues.get("ID"), co);
+                            alModels.add(new RankedModel(parseMetric(co.hmValues.get(Main.bestModelsSortingMetric)), co.hmValues.get("ID"), co));
                         } catch (Exception e) {
                             if (Main.debug) {
                                 e.printStackTrace();
@@ -134,8 +137,8 @@ public class BestModelSelectionAndReport {
                     } else {
                         try {
                             regressionObject ro = new regressionObject(line);
-                            tmModels.put(Double.valueOf(ro.hmValues.get(Main.bestModelsSortingMetric)) + " " + ro.hmValues.get("ID"), ro);
                             hmModels.put(ro.hmValues.get("ID"), ro);
+                            alModels.add(new RankedModel(parseMetric(ro.hmValues.get(Main.bestModelsSortingMetric)), ro.hmValues.get("ID"), ro));
                         } catch (Exception e) {
                             if (Main.debug) {
                                 e.printStackTrace();
@@ -146,38 +149,48 @@ public class BestModelSelectionAndReport {
             }
             br.close();
 
+            //sort models by the numeric value of the metric (best first),
+            //then by ID as before (descending when maximizing). Undefined values last.
+            final boolean minimize = metricToMinimize;
+            Collections.sort(alModels, (m1, m2) -> {
+                if (Double.isNaN(m1.metric) || Double.isNaN(m2.metric)) {
+                    return Boolean.compare(Double.isNaN(m1.metric), Double.isNaN(m2.metric));
+                }
+                int c = minimize ? Double.compare(m1.metric, m2.metric) : Double.compare(m2.metric, m1.metric);
+                if (c == 0) {
+                    c = minimize ? m1.id.compareTo(m2.id) : m2.id.compareTo(m1.id);
+                }
+                return c;
+            });
+
             //control available models
-            if (Main.numberOfBestModels > tmModels.size()) {
-                System.out.println("Only " + tmModels.size() + " available models. You have configured " + Main.numberOfBestModels + " best models");
-                Main.numberOfBestModels = tmModels.size();
+            if (Main.numberOfBestModels > alModels.size()) {
+                System.out.println("Only " + alModels.size() + " available models. You have configured " + Main.numberOfBestModels + " best models");
+                Main.numberOfBestModels = alModels.size();
             }
 
             // get best models list
             ArrayList<Object> alBestClassifiers = new ArrayList<>();
             cpt = 0;
             if (Main.hmTrainingBestModelList.isEmpty()) {
-                for (String metricAndModel : tmModels.keySet()) {
+                for (RankedModel rankedModel : alModels) {
                     cpt++;
                     boolean condition = false;
                     if (metricToMinimize) {
-                        condition = Double.valueOf(metricAndModel.split(" ")[0]) < Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric <= Main.bestModelsSortingMetricThreshold;
                     } else {
-                        condition = Double.valueOf(metricAndModel.split(" ")[0]) > Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric >= Main.bestModelsSortingMetricThreshold;
                     }
                     if (condition && cpt <= Main.numberOfBestModels) {
-                        if (classification) {
-                            alBestClassifiers.add(((classificationObject) tmModels.get(metricAndModel)));
-                        } else {
-                            alBestClassifiers.add(((regressionObject) tmModels.get(metricAndModel)));
-                        }
+                        alBestClassifiers.add(rankedModel.model);
                     }
                 }
             } else {
                 for (String modelID : Main.hmTrainingBestModelList.keySet()) {
-                    if (classification) {
-                        alBestClassifiers.add(((classificationObject) hmModels.get(modelID)));
+                    if (hmModels.containsKey(modelID)) {
+                        alBestClassifiers.add(hmModels.get(modelID));
                     } else {
-                        alBestClassifiers.add(((regressionObject) hmModels.get(modelID)));
+                        System.err.println("[error] Model " + modelID + " not found in " + predictionsResultsFile);
                     }
                 }
             }
@@ -200,18 +213,26 @@ public class BestModelSelectionAndReport {
             //perform evaluations and create models
             PrintWriter pw = null;
             for (Object classifier : alBestClassifiers) {
-                // initialize weka module
-                if (classification) {
-                    init(featureSelectionFile.replace("infoGain.csv", "infoGain.arff"), classification);
-                } else {
-                    init(featureSelectionFile.replace("RELIEFF.csv", "RELIEFF.arff"), classification);
-                }
-                createBestModel(classifier, classification, pw, br, false);
+                // one failing model must not stop the others
+                try {
+                    // initialize weka module
+                    if (classification) {
+                        init(featureSelectionFile.replace("infoGain.csv", "infoGain.arff"), classification);
+                    } else {
+                        init(featureSelectionFile.replace("RELIEFF.csv", "RELIEFF.arff"), classification);
+                    }
+                    createBestModel(classifier, classification, pw, br, false);
 
-                if (Main.generateModelWithCorrelatedGenes) {
-                    init(trainFilName, classification);
-                    createBestModel(classifier, classification, pw, br, true);
-                    correlatedFeatures = null;
+                    if (Main.generateModelWithCorrelatedGenes) {
+                        init(trainFilName, classification);
+                        createBestModel(classifier, classification, pw, br, true);
+                        correlatedFeatures = null;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.err.println("[error] Unable to create the best model "
+                            + (classification ? ((classificationObject) classifier).identifier : ((regressionObject) classifier).identifier)
+                            + ". Going to the next one.");
                 }
             }
 
@@ -257,6 +278,9 @@ public class BestModelSelectionAndReport {
                     + co.optimizer.toUpperCase().trim() + "_" + co.mode + corrMode;
             Object trainingOutput = weka.trainClassifier(co.classifier, co.options,
                     co.featuresSeparatedByCommas, classification, 10);
+            if (!(trainingOutput instanceof Weka_module.ClassificationResultsObject)) {
+                throw new Exception("Training failed: " + trainingOutput);
+            }
             cr = (Weka_module.ClassificationResultsObject) trainingOutput;
 
             classifierName = co.classifier + "_" + co.printOptions() + "_"
@@ -279,6 +303,9 @@ public class BestModelSelectionAndReport {
                     + ro.optimizer.toUpperCase().trim() + "_" + ro.mode;
             Object trainingOutput = weka.trainClassifier(ro.classifier, ro.options,
                     ro.featuresSeparatedByCommas, classification, 10);
+            if (!(trainingOutput instanceof Weka_module.RegressionResultsObject)) {
+                throw new Exception("Training failed: " + trainingOutput);
+            }
             rr = (Weka_module.RegressionResultsObject) trainingOutput;
 
             classifierName = ro.classifier + "_" + ro.printOptions() + "_"
@@ -366,20 +393,29 @@ public class BestModelSelectionAndReport {
         if (Main.loocv) {
             System.out.println("# LOOCV (Leave-One-Out cross validation) performance");
             pw.println("\n# LOOCV (Leave-One-Out Cross Validation) performance");
+            Object loocvOutput;
             if (classification) {
-                Weka_module.ClassificationResultsObject cr2 = (Weka_module.ClassificationResultsObject) weka.trainClassifier(co.classifier, co.options,
+                loocvOutput = weka.trainClassifier(co.classifier, co.options,
                         co.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            } else {
+                loocvOutput = weka.trainClassifier(ro.classifier, ro.options,
+                        ro.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            }
+            if (loocvOutput instanceof Weka_module.ClassificationResultsObject) {
+                Weka_module.ClassificationResultsObject cr2 = (Weka_module.ClassificationResultsObject) loocvOutput;
                 System.out.println(cr2.toStringDetails());
                 alMCCs.add(Double.valueOf(cr2.MCC));
                 alMAEs.add(Double.valueOf(cr2.MAE));
                 pw.println(cr2.toStringDetails().replace("[score_training] ", ""));
-            } else {
-                Weka_module.RegressionResultsObject rr2 = (Weka_module.RegressionResultsObject) weka.trainClassifier(ro.classifier, ro.options,
-                        ro.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            } else if (loocvOutput instanceof Weka_module.RegressionResultsObject) {
+                Weka_module.RegressionResultsObject rr2 = (Weka_module.RegressionResultsObject) loocvOutput;
                 System.out.println(rr2.toStringDetails());
                 alCCs.add(Double.valueOf(rr2.CC));
                 alMAEs.add(Double.valueOf(rr2.MAE));
                 pw.println(rr2.toStringDetails().replace("[score_training] ", ""));
+            } else {
+                System.err.println("[error] LOOCV failed: " + loocvOutput);
+                pw.println("LOOCV failed");
             }
             pw.flush();
         }
@@ -396,6 +432,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.ClassificationResultsObject cro
                         = (Weka_module.ClassificationResultsObject) weka.trainClassifierHoldOutValidation(co.classifier, co.options,
                                 co.featuresSeparatedByCommas, classification, i);
+                if (cro == null) {
+                    continue; // failed repetition
+                }
                 eproRHTrain.alAUCs.add(Double.valueOf(cro.AUC));
                 eproRHTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                 eproRHTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -425,6 +464,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.RegressionResultsObject rro
                         = (Weka_module.RegressionResultsObject) weka.trainClassifierHoldOutValidation(ro.classifier, ro.options,
                                 ro.featuresSeparatedByCommas, classification, i);
+                if (rro == null) {
+                    continue; // failed repetition
+                }
                 eproRHTrain.alCCs.add(Double.valueOf(rro.CC));
                 eproRHTrain.alMAEs.add(Double.valueOf(rro.MAE));
                 eproRHTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -450,6 +492,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.ClassificationResultsObject cro
                         = (Weka_module.ClassificationResultsObject) weka.trainClassifierBootstrap(co.classifier, co.options,
                                 co.featuresSeparatedByCommas, classification, i);
+                if (cro == null) {
+                    continue; // failed repetition
+                }
                 eproBSTrain.alAUCs.add(Double.valueOf(cro.AUC));
                 eproBSTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                 eproBSTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -491,6 +536,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.RegressionResultsObject rro
                         = (Weka_module.RegressionResultsObject) weka.trainClassifierBootstrap(ro.classifier, ro.options,
                                 ro.featuresSeparatedByCommas, classification, i);
+                if (rro == null) {
+                    continue; // failed repetition
+                }
                 eproBSTrain.alCCs.add(Double.valueOf(rro.CC));
                 eproBSTrain.alMAEs.add(Double.valueOf(rro.MAE));
                 eproBSTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -622,6 +670,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka3.trainClassifierHoldOutValidation(co.classifier, co.options,
                                             null, classification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                             eproRHTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproRHTrainTest.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -654,6 +705,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka3.trainClassifierHoldOutValidation(ro.classifier, ro.options,
                                             null, classification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrainTest.alCCs.add(Double.valueOf(rro.CC));
                             eproRHTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                             eproRHTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -710,6 +764,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka4.trainClassifierBootstrap(co.classifier, co.options,
                                             null, classification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                             eproBSTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproBSTrainTest.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -753,6 +810,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka4.trainClassifierBootstrap(ro.classifier, ro.options,
                                             null, classification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrainTest.alCCs.add(Double.valueOf(rro.CC));
                             eproBSTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                             eproBSTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -1287,6 +1347,37 @@ public class BestModelSelectionAndReport {
             }
         }
 
+    }
+
+    /**
+     * parse a metric of the results file. Older versions could write values
+     * >= 1000 with a grouping separator (1,234.5): it is removed.
+     *
+     * @param value
+     * @return the value, NaN if it is not a number
+     */
+    private static double parseMetric(String value) {
+        try {
+            return Double.parseDouble(value.replace(",", "").trim());
+        } catch (Exception e) {
+            return Double.NaN;
+        }
+    }
+
+    /**
+     * a model of the results file with its sorting metric
+     */
+    private static class RankedModel {
+
+        public double metric;
+        public String id;
+        public Object model;
+
+        private RankedModel(double metric, String id, Object model) {
+            this.metric = metric;
+            this.id = id;
+            this.model = model;
+        }
     }
 
     private static class RankerObject {
