@@ -10,7 +10,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,7 +56,6 @@ import weka.filters.unsupervised.instance.RemoveRange;
  */
 public class Weka_module {
 
-    public DecimalFormat df = new DecimalFormat();
     public ArrayList<String> alPrint = new ArrayList<>();
     private File CSVFile;
     public String ARFFfile;
@@ -65,11 +63,6 @@ public class Weka_module {
     public Instances myData;
 
     public Weka_module() {
-        df.setMaximumFractionDigits(3);
-        DecimalFormatSymbols dec = new DecimalFormatSymbols();
-        dec.setDecimalSeparator('.');
-        df.setGroupingUsed(false);
-        df.setDecimalFormatSymbols(dec);
 //        svm.svm_set_print_string_function(new libsvm.svm_print_interface() {
 //            @Override
 //            public void print(String s) {
@@ -343,7 +336,7 @@ public class Weka_module {
                 int falseExemples = data.attributeStats(data.classIndex()).nominalCounts[1];
                 int trueExemples = data.attributeStats(data.classIndex()).nominalCounts[0];
                 double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", df.format(ratio));
+                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -439,7 +432,7 @@ public class Weka_module {
                 int falseExemples = data.attributeStats(data.classIndex()).nominalCounts[1];
                 int trueExemples = data.attributeStats(data.classIndex()).nominalCounts[0];
                 double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", df.format(ratio));
+                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -562,7 +555,7 @@ public class Weka_module {
                 int falseExemples = train.attributeStats(train.classIndex()).nominalCounts[1];
                 int trueExemples = train.attributeStats(train.classIndex()).nominalCounts[0];
                 double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", df.format(ratio));
+                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -1846,6 +1839,7 @@ public class Weka_module {
         if (data.classIndex() == -1) {
             data.setClassIndex(data.numAttributes() - 1);
         }
+        DecimalFormat df = utils.newDecimalFormat();
         //calculate seed
         Random rand = new Random();
         int seed = 1 + rand.nextInt(1000);

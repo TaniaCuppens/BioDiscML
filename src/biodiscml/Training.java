@@ -10,7 +10,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ public class Training {
     public static int cptFailed = 0;
     public boolean parrallel = true;
     public static String trainFileName = "";
-    public static DecimalFormat df = new DecimalFormat();
     public static PrintWriter pw;
 
     public Training() {
@@ -67,10 +65,6 @@ public class Training {
             }
         }
 
-        df.setMaximumFractionDigits(3);
-        DecimalFormatSymbols dfs = new DecimalFormatSymbols();
-        dfs.setDecimalSeparator('.');
-        df.setDecimalFormatSymbols(dfs);
         if (Main.cpus.equals("1")) {
             parrallel = false;
         }
@@ -520,6 +514,8 @@ public class Training {
         Instant start = Instant.now();
         System.out.println("[model] (" + (cptPassed++) + "/" + alClassifiers.size() + ")" + out);
         String lastOutput = "";
+        // models are trained in parallel and DecimalFormat is not thread-safe
+        DecimalFormat df = utils.newDecimalFormat();
 
         boolean minimize = valueToMaximizeOrMinimize.equals("fdr")
                 || valueToMaximizeOrMinimize.equals("mae")

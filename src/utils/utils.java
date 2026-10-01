@@ -20,6 +20,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.TreeMap;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
@@ -216,12 +217,28 @@ public class utils {
         return al.stream().mapToDouble(Double::doubleValue).toArray();
     }
 
-    public static String getStandardDeviation(ArrayList<Double> al) {
-        DecimalFormat df = new DecimalFormat();
-        df.setMaximumFractionDigits(3);
-        DecimalFormatSymbols dfs = new DecimalFormatSymbols();
+    /**
+     * Create the number format used to write metrics: at most 3 fraction
+     * digits, '.' as decimal separator whatever the default locale, no
+     * grouping separator, and "NaN" / "Infinity" for non-finite values (so
+     * that the written values can be parsed back with Double.valueOf).
+     * DecimalFormat is not thread-safe: callers running in parallel must
+     * each use their own instance.
+     *
+     * @return a new DecimalFormat
+     */
+    public static DecimalFormat newDecimalFormat() {
+        DecimalFormatSymbols dfs = new DecimalFormatSymbols(Locale.US);
         dfs.setDecimalSeparator('.');
-        df.setDecimalFormatSymbols(dfs);
+        dfs.setNaN("NaN");
+        dfs.setInfinity("Infinity");
+        DecimalFormat df = new DecimalFormat("0.###", dfs);
+        df.setGroupingUsed(false);
+        return df;
+    }
+
+    public static String getStandardDeviation(ArrayList<Double> al) {
+        DecimalFormat df = newDecimalFormat();
 
         StandardDeviation s = new StandardDeviation();
         s.setData(utils.arrayToDouble(al));
@@ -304,11 +321,7 @@ public class utils {
             }
 
             Mean m = new Mean();
-            DecimalFormat df = new DecimalFormat();
-            df.setMaximumFractionDigits(3);
-            DecimalFormatSymbols dfs = new DecimalFormatSymbols();
-            dfs.setDecimalSeparator('.');
-            df.setDecimalFormatSymbols(dfs);
+            DecimalFormat df = newDecimalFormat();
             return df.format(m.evaluate(d));
         } else {
             return "";

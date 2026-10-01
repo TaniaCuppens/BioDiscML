@@ -14,7 +14,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +37,7 @@ public class BestModelSelectionAndReport {
     public static Weka_module weka = new Weka_module();
     public static HashMap<String, Integer> hmResultsHeaderNames = new HashMap<>();
     public static HashMap< Integer, String> hmResultsHeaderIndexes = new HashMap<>();
-    public static DecimalFormat df = new DecimalFormat();
+    public static DecimalFormat df = utils.newDecimalFormat();
     public static String trainFileName;
     public static String featureSelectionFile;
     public static String predictionsResultsFile;
@@ -63,10 +62,6 @@ public class BestModelSelectionAndReport {
             featureSelectionFile = featureSelFile;
         }
         predictionsResultsFile = predictionsResFile;
-        df.setMaximumFractionDigits(3);
-        DecimalFormatSymbols dfs = new DecimalFormatSymbols();
-        dfs.setDecimalSeparator('.');
-        df.setDecimalFormatSymbols(dfs);
         String bestOrCombine = "Select best ";
 
         if (Main.combineModels) {
