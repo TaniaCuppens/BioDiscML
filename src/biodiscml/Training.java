@@ -1520,7 +1520,7 @@ public class Training {
     /**
      * optimizers accepted by getValueToMaximize
      */
-    private static final List<String> KNOWN_OPTIMIZERS = java.util.Arrays.asList(
+    static final List<String> KNOWN_OPTIMIZERS = java.util.Arrays.asList(
             "auc", "pauc", "acc", "sen", "tpr", "spe", "tnr", "mcc", "kappa", "auprc", "aupcr",
             "fscore", "precision", "recall", "fdr", "ber", "tp+fn",
             "cc", "mae", "rmse", "rae", "rrse");

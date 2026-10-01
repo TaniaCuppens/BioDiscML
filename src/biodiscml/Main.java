@@ -159,11 +159,11 @@ public class Main {
                 } else {
                     br = new BufferedReader(new FileReader(classifiers));
                 }
-                line = "";
-                while (br.ready()) {
-                    if (!line.startsWith("#") && !line.trim().isEmpty()) {
-                        String option = line.split("=")[0].trim();
-                        String value = line.split("=")[1].trim();
+                // (the last line used to be skipped by a br.ready() loop)
+                while ((line = br.readLine()) != null) {
+                    if (!line.trim().startsWith("#") && line.contains("=")) {
+                        String option = line.substring(0, line.indexOf("=")).trim();
+                        String value = line.substring(line.indexOf("=") + 1).trim();
                         switch (option) {
                             case "ccmd":
                                 classificationBruteForceCommands.add(value.trim());
@@ -173,7 +173,6 @@ public class Main {
                                 break;
                         }
                     }
-                    line = br.readLine();
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -399,12 +398,12 @@ public class Main {
         //set options
         boolean prefixesDefined = false;
         for (String s : options) {
-            if (s.equals("help")) {
+            if (s.trim().equals("help")) {
                 System.out.println("Read readme.md file or https://github.com/mickaelleclercq/BioDiscML");
                 System.exit(0);
             }
             if (s.contains("=")) {
-                setOption(s.split("=")[0], s.split("=")[1]);
+                setOption(s.substring(0, s.indexOf("=")).trim(), s.substring(s.indexOf("=") + 1).trim());
             }
             // get config
             if (s.startsWith("config") && configFile.isEmpty()) {
@@ -501,15 +500,25 @@ public class Main {
         String line = null;
         try {
             BufferedReader br = new BufferedReader(new FileReader(configFile));
-            while (br.ready()) {
-                line = br.readLine();
-                if (!line.startsWith("#") && !line.trim().isEmpty()) {
-                    String option = line.split("=")[0].trim();
-                    String value = line.split("=")[1].trim();
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().startsWith("#") && !line.trim().isEmpty()) {
+                    if (!line.contains("=")) {
+                        System.err.println("[warning] Line ignored in config file (no option=value): " + line);
+                        continue;
+                    }
+                    // split at the first '=' only: values can contain '='
+                    String option = line.substring(0, line.indexOf("=")).trim();
+                    // remove end of line comments ("value # comment")
+                    String value = line.substring(line.indexOf("=") + 1).replaceAll("\\s+#.*$", "").trim();
+                    if (value.isEmpty()) {
+                        System.err.println("[warning] No value for option " + option + " in config file: default value kept");
+                        continue;
+                    }
                     //System.out.println(option + ":" + value);
                     setOption(option, value);
                 }
             }
+            br.close();
 
         } catch (Exception e) {
             System.err.println("Parsing error in config file at line " + line);
@@ -519,16 +528,78 @@ public class Main {
 
     }
 
+    /**
+     * Parse a fast way command: "classifier options[, optimizer[, search mode]]".
+     * The optimizer and the search mode are recognized from the end, so that
+     * the classifier options can contain commas.
+     *
+     * @param value
+     * @return classifier options:optimizer:searchmode (allopt and allsearch if
+     * not provided)
+     */
+    static String parseFastWayCommand(String value) {
+        String parts[] = value.split(",", -1);
+        int n = parts.length;
+        String optimizer = "allopt";
+        String searchmode = "allsearch";
+        int end = n; // parts[0..end-1] are the classifier and its options
+        if (n >= 3 && isSearchMode(parts[n - 1]) && isOptimizer(parts[n - 2])) {
+            optimizer = parts[n - 2].trim().toLowerCase();
+            searchmode = parts[n - 1].trim().toLowerCase();
+            end = n - 2;
+        } else if (n >= 2 && isOptimizer(parts[n - 1])) {
+            optimizer = parts[n - 1].trim().toLowerCase();
+            end = n - 1;
+        }
+        String command = String.join(",", java.util.Arrays.copyOfRange(parts, 0, end)).trim();
+        return command + ":" + optimizer + ":" + searchmode;
+    }
+
+    private static boolean isOptimizer(String s) {
+        s = s.trim().toLowerCase();
+        return s.equals("allopt") || Training.KNOWN_OPTIMIZERS.contains(s);
+    }
+
+    private static boolean isSearchMode(String s) {
+        s = s.trim().toLowerCase();
+        return s.equals("allsearch") || s.equals("f") || s.equals("fb") || s.equals("b")
+                || s.equals("bf") || s.equals("all") || s.matches("top[0-9]+");
+    }
+
+    /**
+     * @param option
+     * @param value
+     * @return the boolean value: true/yes/1/on or false/no/0/off (any case)
+     */
+    static boolean parseBoolean(String option, String value) {
+        switch (value.trim().toLowerCase()) {
+            case "true":
+            case "yes":
+            case "1":
+            case "on":
+                return true;
+            case "false":
+            case "no":
+            case "0":
+            case "off":
+                return false;
+            default:
+                System.err.println("[warning] Invalid value " + value + " for option " + option
+                        + " (expected true or false): false is used");
+                return false;
+        }
+    }
+
     private static void setOption(String option, String value) {
         switch (option) {
             case "config":
                 configFile = value.trim();
                 break;
             case "debug":
-                debug = Boolean.valueOf(value.trim());
+                debug = parseBoolean(option, value);
                 break;
             case "debug2":
-                debug2 = Boolean.valueOf(value.trim());
+                debug2 = parseBoolean(option, value);
                 break;
             case "wd":
                 wd = value.trim();
@@ -584,7 +655,7 @@ public class Main {
                 break;
 
             case "doClassification":
-                doClassification = Boolean.valueOf(value.trim());
+                doClassification = parseBoolean(option, value);
                 break;
 
             case "classificationClassName":
@@ -594,7 +665,7 @@ public class Main {
                 }
                 break;
             case "classificationFastWay":
-                classificationFastWay = Boolean.valueOf(value.trim());
+                classificationFastWay = parseBoolean(option, value);
                 break;
             case "numberOfBestModels":
                 numberOfBestModels = Integer.valueOf(value.trim());
@@ -607,42 +678,10 @@ public class Main {
                 bestModelsSortingMetricThreshold = Double.valueOf(value.trim());
                 break;
             case "ccmd":
-                switch (value.split(",").length) {
-                    case 1:
-                        classificationFastWayCommands.add(value.trim()
-                                + ":allopt:allsearch");
-                        break;
-                    case 2:
-                        classificationFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase() + ":allsearch");
-                        break;
-                    case 3:
-                        classificationFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase()
-                                + ":" + value.split(",")[2].trim().toLowerCase());
-                        break;
-                    default:
-                        break;
-                }
+                classificationFastWayCommands.add(parseFastWayCommand(value));
                 break;
             case "rcmd":
-                switch (value.split(",").length) {
-                    case 1:
-                        regressionFastWayCommands.add(value.trim()
-                                + ":allopt:allsearch");
-                        break;
-                    case 2:
-                        regressionFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase() + ":allsearch");
-                        break;
-                    case 3:
-                        regressionFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase()
-                                + ":" + value.split(",")[2].trim().toLowerCase());
-                        break;
-                    default:
-                        break;
-                }
+                regressionFastWayCommands.add(parseFastWayCommand(value));
                 break;
             case "coptimizers":
                 classificationOptimizers = value.trim().toLowerCase();
@@ -651,13 +690,13 @@ public class Main {
                 searchmodes = value.trim().toLowerCase();
                 break;
             case "doRegression":
-                doRegression = Boolean.valueOf(value.trim());
+                doRegression = parseBoolean(option, value);
                 break;
             case "regressionClassName":
                 regressionClassName = value.trim();
                 break;
             case "regressionFastWay":
-                regressionFastWay = Boolean.valueOf(value.trim());
+                regressionFastWay = parseBoolean(option, value);
                 break;
 
             case "roptimizers":
@@ -688,28 +727,28 @@ public class Main {
                 maxRankingScoreDifference = Double.valueOf(value.trim());
                 break;
             case "retreiveCorrelatedGenesByRankingScore":
-                retreiveCorrelatedGenesByRankingScore = Boolean.valueOf(value.trim());
+                retreiveCorrelatedGenesByRankingScore = parseBoolean(option, value);
                 break;
             case "combineModels":
-                combineModels = Boolean.valueOf(value.trim());
+                combineModels = parseBoolean(option, value);
                 break;
             case "retrieveCorrelatedGenes":
-                retrieveCorrelatedGenes = Boolean.valueOf(value.trim());
+                retrieveCorrelatedGenes = parseBoolean(option, value);
                 break;
             case "generateModelWithCorrelatedGenes":
-                generateModelWithCorrelatedGenes = Boolean.valueOf(value.trim());
+                generateModelWithCorrelatedGenes = parseBoolean(option, value);
                 break;
             case "combinationRule":
                 combinationRule = value.trim().toUpperCase();
                 break;
             case "sampling":
-                doSampling = Boolean.valueOf(value.trim());
+                doSampling = parseBoolean(option, value);
                 break;
             case "roc_curves":
-                ROCcurves = Boolean.valueOf(value.trim());
+                ROCcurves = parseBoolean(option, value);
                 break;
             case "loocv":
-                loocv = Boolean.valueOf(value.trim());
+                loocv = parseBoolean(option, value);
                 break;
             case "samplingFold":
                 samplingFold = Integer.valueOf(value.trim());
@@ -718,31 +757,31 @@ public class Main {
                 cpus = value.trim();
                 break;
             case "computeBestModel":
-                computeBestModel = Boolean.valueOf(value.trim());
+                computeBestModel = parseBoolean(option, value);
                 break;
             case "modelFile":
                 modelFile = value.trim();
                 break;
             case "printFailedModels":
-                printFailedModels = Boolean.valueOf(value.trim());
+                printFailedModels = parseBoolean(option, value);
                 break;
             case "resumeTraining":
-                resumeTraining = Boolean.valueOf(value.trim());
+                resumeTraining = parseBoolean(option, value);
                 break;
             case "upsetr":
-                UpSetR = Boolean.valueOf(value.trim());
+                UpSetR = parseBoolean(option, value);
                 break;
             case "repeatedHoldoutTrain":
-                repeatedHoldout = Boolean.valueOf(value.trim());
+                repeatedHoldout = parseBoolean(option, value);
                 break;
             case "bootstrap":
-                bootstrap = Boolean.valueOf(value.trim());
+                bootstrap = parseBoolean(option, value);
                 break;
             case "restoreRun":
-                restoreRun = Boolean.valueOf(value.trim());
+                restoreRun = parseBoolean(option, value);
                 break;
             case "noFeatureSelection":
-                noFeatureSelection = Boolean.valueOf(value.trim());
+                noFeatureSelection = parseBoolean(option, value);
                 break;
             case "previousRunPath":
                 previousRunPath = value.trim();
@@ -751,7 +790,7 @@ public class Main {
                 previousRunProjectName = value.trim();
                 break;
             case "performShortTest":
-                performShortTest = Boolean.valueOf(value.trim());
+                performShortTest = parseBoolean(option, value);
                 break;
             case "positiveClass":
                 positiveClass = value.trim();
