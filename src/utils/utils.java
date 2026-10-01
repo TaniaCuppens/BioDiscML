@@ -20,6 +20,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.TreeMap;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
@@ -218,6 +219,15 @@ public class utils {
     }
 
     /**
+     * @param al list of values, possibly containing null or NaN
+     * @return the values that are neither null nor NaN
+     */
+    public static double[] arrayToDoubleWithoutNaN(List<Double> al) {
+        return al.stream().filter(d -> d != null && !d.isNaN())
+                .mapToDouble(Double::doubleValue).toArray();
+    }
+
+    /**
      * Create the number format used to write metrics: at most 3 fraction
      * digits, '.' as decimal separator whatever the default locale, no
      * grouping separator, and "NaN" / "Infinity" for non-finite values (so
@@ -241,7 +251,7 @@ public class utils {
         DecimalFormat df = newDecimalFormat();
 
         StandardDeviation s = new StandardDeviation();
-        s.setData(utils.arrayToDouble(al));
+        s.setData(arrayToDoubleWithoutNaN(al));
 
         return df.format(s.evaluate());
     }
@@ -313,12 +323,9 @@ public class utils {
     public static String getMean(ArrayList<Double> al) {
 
         if (!al.isEmpty()) {
-            double d[] = new double[al.size()];
-            for (int i = 0; i < al.size(); i++) {
-                if (!al.get(i).isNaN()) {
-                    d[i] = (double) al.get(i);
-                }
-            }
+            // undefined values (NaN, e.g. a metric on a fold with a single
+            // class) are ignored, neither counted as 0 nor in the denominator
+            double d[] = arrayToDoubleWithoutNaN(al);
 
             Mean m = new Mean();
             DecimalFormat df = newDecimalFormat();
