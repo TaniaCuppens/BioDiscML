@@ -64,12 +64,12 @@ public class AdaptDatasetToTraining {
             String testFile = trainFile.replace("data_to_train.csv", "data_to_test.csv");
             Weka_module weka = new Weka_module();
             String trainSetRange = "";
-            if (!Main.hmNewDataFiles.isEmpty()) {
+            if (!Main.hmValidationFiles.isEmpty()) {
                 System.out.println("# Testing file(s)");
                 if (Main.doClassification) {
-                    createFileCompatibleForWeka(Main.classificationClassName, Main.hmNewDataFiles, testFile, Main.separator, false);
+                    createFileCompatibleForWeka(Main.classificationClassName, Main.hmValidationFiles, testFile, Main.separator, false);
                 } else {
-                    createFileCompatibleForWeka(Main.regressionClassName, Main.hmNewDataFiles, testFile, Main.separator, false);
+                    createFileCompatibleForWeka(Main.regressionClassName, Main.hmValidationFiles, testFile, Main.separator, false);
                 }
                 //if a test file is provided, we need to merge it to the train file and
                 // split it again to preserve a compatible arff format between train and test sets
