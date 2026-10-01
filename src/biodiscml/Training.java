@@ -390,6 +390,18 @@ public class Training {
             }
 
         }
+        //warn about unknown optimizers: all the models using them would fail
+        HashMap<String, String> hmUnknownOptimizers = new HashMap<>();
+        for (String[] classif : alClassifiers) {
+            if (!KNOWN_OPTIMIZERS.contains(classif[2].toLowerCase().trim())) {
+                hmUnknownOptimizers.put(classif[2], "");
+            }
+        }
+        for (String unknownOptimizer : hmUnknownOptimizers.keySet()) {
+            System.err.println("[warning] Unknown optimizer " + unknownOptimizer
+                    + ": the models using it will fail. Available optimizers: " + KNOWN_OPTIMIZERS);
+        }
+
         //resume training, remove from alClassifier all classifiers already trained
         if (Main.resumeTraining && !Main.restoreRun) {
             HashMap<String, String> hm = new HashMap<>();
@@ -594,12 +606,7 @@ public class Training {
         // models are trained in parallel and DecimalFormat is not thread-safe
         DecimalFormat df = utils.newDecimalFormat();
 
-        boolean minimize = valueToMaximizeOrMinimize.equals("fdr")
-                || valueToMaximizeOrMinimize.equals("mae")
-                || valueToMaximizeOrMinimize.equals("rmse")
-                || valueToMaximizeOrMinimize.equals("ber")
-                || valueToMaximizeOrMinimize.equals("rae")
-                || valueToMaximizeOrMinimize.equals("rrse");
+        boolean minimize = isMinimizedOptimizer(valueToMaximizeOrMinimize);
 
         try {
             Object o = null;
@@ -1461,7 +1468,7 @@ public class Training {
     private static double getValueToMaximize(String valueWanted, Weka_module.ClassificationResultsObject cr,
             Weka_module.RegressionResultsObject rr) {
 
-        switch (valueWanted.toLowerCase()) {
+        switch (valueWanted.toLowerCase().trim()) {
             //classification
             case "auc":
                 return Double.parseDouble(cr.AUC);
@@ -1470,14 +1477,17 @@ public class Training {
             case "acc":
                 return Double.parseDouble(cr.ACC);
             case "sen":
+            case "tpr":
                 return Double.parseDouble(cr.TPR);
             case "spe":
+            case "tnr":
                 return Double.parseDouble(cr.TNR);
             case "mcc":
                 return Double.parseDouble(cr.MCC);
             case "kappa":
                 return Double.parseDouble(cr.kappa);
-            case "aupcr":
+            case "auprc":
+            case "aupcr": //misspelling accepted in previous versions
                 return Double.parseDouble(cr.AUPRC);
             case "fscore":
                 return Double.parseDouble(cr.Fscore);
@@ -1504,7 +1514,33 @@ public class Training {
             case "rrse":
                 return Double.parseDouble(rr.RRSE);//to minimize
         }
-        return 0;
+        throw new IllegalArgumentException("unknown optimizer " + valueWanted);
+    }
+
+    /**
+     * optimizers accepted by getValueToMaximize
+     */
+    private static final List<String> KNOWN_OPTIMIZERS = java.util.Arrays.asList(
+            "auc", "pauc", "acc", "sen", "tpr", "spe", "tnr", "mcc", "kappa", "auprc", "aupcr",
+            "fscore", "precision", "recall", "fdr", "ber", "tp+fn",
+            "cc", "mae", "rmse", "rae", "rrse");
+
+    /**
+     * @param optimizer
+     * @return true if the optimizer is an error rate, to minimize
+     */
+    private static boolean isMinimizedOptimizer(String optimizer) {
+        switch (optimizer.toLowerCase().trim()) {
+            case "fdr":
+            case "mae":
+            case "rmse":
+            case "ber":
+            case "rae":
+            case "rrse":
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**
