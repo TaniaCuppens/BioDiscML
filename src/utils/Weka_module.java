@@ -289,6 +289,26 @@ public class Weka_module {
     }
 
     /**
+     * For CostSensitiveClassifier, replace "ratio" in the options (cost
+     * matrix) by the ratio between the number of instances of the first and
+     * second classes.
+     *
+     * @param classifier
+     * @param classifier_options
+     * @param data
+     * @return options
+     */
+    private static String setCostSensitiveRatio(String classifier, String classifier_options, Instances data) {
+        if (classifier.contains("CostSensitiveClassifier")) {
+            int falseExemples = data.attributeStats(data.classIndex()).nominalCounts[1];
+            int trueExemples = data.attributeStats(data.classIndex()).nominalCounts[0];
+            double ratio = (double) trueExemples / (double) falseExemples;
+            classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
+        }
+        return classifier_options;
+    }
+
+    /**
      * Group the instances by class value (nominal class). Instances with a
      * missing class are in the last group. For a numeric class, one group
      * with all the instances.
@@ -441,6 +461,8 @@ public class Weka_module {
              * if we are using Vote, it means it already contains the features
              * to use for each classifier
              */
+            //if cost sensitive case
+            classifier_options = setCostSensitiveRatio(classifier, classifier_options, data);
             String configuration = classifier + " " + classifier_options;
             if (!classifier.contains("meta.Vote")) {
                 //keep only attributesToUse. ID is still here
@@ -461,14 +483,6 @@ public class Weka_module {
 
                 //create config
                 configuration = filterID + "" + classifier + " -- " + classifier_options;
-            }
-
-            //if cost sensitive case
-            if (classifier.contains("CostSensitiveClassifier")) {
-                int falseExemples = data.attributeStats(data.classIndex()).nominalCounts[1];
-                int trueExemples = data.attributeStats(data.classIndex()).nominalCounts[0];
-                double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -537,6 +551,8 @@ public class Weka_module {
              * if we are using Vote, it means it already contains the features
              * to use for each classifier
              */
+            //if cost sensitive case
+            classifier_options = setCostSensitiveRatio(classifier, classifier_options, data);
             String configuration = classifier + " " + classifier_options;
             if (!classifier.contains("meta.Vote")) {
                 //keep only attributesToUse. ID is still here
@@ -557,14 +573,6 @@ public class Weka_module {
 
                 //create config
                 configuration = filterID + "" + classifier + " -- " + classifier_options;
-            }
-
-            //if cost sensitive case
-            if (classifier.contains("CostSensitiveClassifier")) {
-                int falseExemples = data.attributeStats(data.classIndex()).nominalCounts[1];
-                int trueExemples = data.attributeStats(data.classIndex()).nominalCounts[0];
-                double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -653,6 +661,8 @@ public class Weka_module {
                 data.setClassIndex(data.numAttributes() - 1);
             }
 
+            //if cost sensitive case
+            classifier_options = setCostSensitiveRatio(classifier, classifier_options, data);
             String configuration = classifier + " " + classifier_options;
             if (!classifier.contains("meta.Vote") && attributesToUse != null) {
                 //keep only attributesToUse. ID (if present) is still here
@@ -690,14 +700,6 @@ public class Weka_module {
                 int testSize = data.numInstances() - trainSize;
                 train = new Instances(data, 0, trainSize);
                 test = new Instances(data, trainSize, testSize);
-            }
-
-            //if cost sensitive case
-            if (classifier.contains("CostSensitiveClassifier")) {
-                int falseExemples = train.attributeStats(train.classIndex()).nominalCounts[1];
-                int trueExemples = train.attributeStats(train.classIndex()).nominalCounts[0];
-                double ratio = (double) trueExemples / (double) falseExemples;
-                classifier_options = classifier_options.replace("ratio", utils.newDecimalFormat().format(ratio));
             }
 
             //train
@@ -770,6 +772,8 @@ public class Weka_module {
                 data.setClassIndex(data.numAttributes() - 1);
             }
 
+            //if cost sensitive case
+            classifier_options = setCostSensitiveRatio(classifier, classifier_options, data);
             String configuration = classifier + " " + classifier_options;
             if (!classifier.contains("meta.Vote") && attributesToUse != null) {
                 //keep only attributesToUse. ID (if present) is still here
@@ -866,6 +870,8 @@ public class Weka_module {
                 data.setClassIndex(data.numAttributes() - 1);
             }
 
+            //if cost sensitive case
+            classifier_options = setCostSensitiveRatio(classifier, classifier_options, data);
             String configuration = classifier + " " + classifier_options;
             if (!classifier.contains("meta.Vote") && attributesToUse != null) {
                 //keep only attributesToUse. ID (if present) is still here
