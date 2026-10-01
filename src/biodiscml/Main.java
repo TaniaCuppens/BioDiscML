@@ -303,6 +303,12 @@ public class Main {
 
         if (predictNewData) {
             System.out.println("#### Start predicting new data...");
+            //prediction type from the configuration
+            if (doRegression && !doClassification) {
+                isClassification = false;
+            } else if (doClassification) {
+                isClassification = true;
+            }
             if (modelFile.isEmpty()) {
                 System.err.println("[error] No model file have been provided (Set a modelFile in config file)");
                 System.exit(0);
