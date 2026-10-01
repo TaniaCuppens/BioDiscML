@@ -6,7 +6,6 @@ package biodiscml;
 
 
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -14,6 +13,7 @@ import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.apache.commons.math3.stat.correlation.SpearmansCorrelation;
 import utils.utils.TableObject;
 import static utils.utils.convertStringListToDoubles;
+import static utils.utils.newDecimalFormat;
 import static utils.utils.readTable;
 
 /**
@@ -38,11 +38,7 @@ public class RetreiveCorrelatedGenes {
         tboSignature.hmData.keySet().parallelStream().forEach((signatureGene) -> {
             //iterate through all signature genes
             // DecimalFormat is not thread-safe: one instance per task
-            DecimalFormat df = new DecimalFormat();
-            df.setMaximumFractionDigits(3);
-            DecimalFormatSymbols dfs = new DecimalFormatSymbols();
-            dfs.setDecimalSeparator('.');
-            df.setDecimalFormatSymbols(dfs);
+            DecimalFormat df = newDecimalFormat();
             double max = 0;
             for (String otherGene : tboAllFeatures.hmData.keySet()) { //iterate through all features
                 if (!otherGene.equals(signatureGene)) { //do not compare the signature gene against itself
@@ -78,8 +74,7 @@ public class RetreiveCorrelatedGenes {
         tboSignature.hmData.keySet().parallelStream().forEach((signatureGene) -> {
             //iterate through all signature genes
             // DecimalFormat is not thread-safe: one instance per task
-            DecimalFormat df = new DecimalFormat();
-            df.setMaximumFractionDigits(3);
+            DecimalFormat df = newDecimalFormat();
             double max = 0;
             for (String otherGene : tboAllFeatures.hmData.keySet()) { //iterate through all features
 
@@ -114,8 +109,7 @@ public class RetreiveCorrelatedGenes {
         tboSignature.hmData.keySet().parallelStream().forEach((signatureGene) -> {
             //iterate through all signature genes
             // DecimalFormat is not thread-safe: one instance per task
-            DecimalFormat df = new DecimalFormat();
-            df.setMaximumFractionDigits(3);
+            DecimalFormat df = newDecimalFormat();
             double max = 0;
             for (String otherGene : tboAllFeatures.hmData.keySet()) { //iterate through all features
 
