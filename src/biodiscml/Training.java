@@ -1018,7 +1018,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double BERs[] = alBERs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double BERs[] = utils.arrayToDoubleWithoutNaN(alBERs);
 
                     StandardDeviation std = new StandardDeviation();
                     std.setData(BERs);
@@ -1059,7 +1059,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double MAEs[] = alMAEs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double MAEs[] = utils.arrayToDoubleWithoutNaN(alMAEs);
 
                     std = new StandardDeviation();
                     std.setData(MAEs);
@@ -1100,7 +1100,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double MCCs[] = alMCCs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double MCCs[] = utils.arrayToDoubleWithoutNaN(alMCCs);
 
                     std = new StandardDeviation();
                     std.setData(MCCs);
@@ -1173,7 +1173,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double CCs[] = alCCs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double CCs[] = utils.arrayToDoubleWithoutNaN(alCCs);
 
                     StandardDeviation std = new StandardDeviation();
                     std.setData(CCs);
@@ -1214,7 +1214,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double MAEs[] = alMAEs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double MAEs[] = utils.arrayToDoubleWithoutNaN(alMAEs);
 
                     std = new StandardDeviation();
                     std.setData(MAEs);
@@ -1255,7 +1255,7 @@ public class Training {
                     } catch (Exception e) {
                     }
 
-                    double RMSEs[] = alRMSEs.stream().mapToDouble(Double::doubleValue).toArray();
+                    double RMSEs[] = utils.arrayToDoubleWithoutNaN(alRMSEs);
 
                     std = new StandardDeviation();
                     std.setData(RMSEs);
