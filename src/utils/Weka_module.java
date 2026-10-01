@@ -2319,7 +2319,11 @@ public class Weka_module {
         private void parsePredictions(StringBuffer sb) {
             String lines[] = sb.toString().split("\n");
 
-            for (int i = 1; i < lines.length; i++) {
+            for (int i = 0; i < lines.length; i++) {
+                // skip the header line, if any (the first line can be a prediction)
+                if (lines[i].trim().isEmpty() || lines[i].trim().startsWith("inst#")) {
+                    continue;
+                }
                 String p = lines[i].replaceAll(" +", "\t");
                 String tab[] = p.split("\t");
                 String inst = tab[1];
