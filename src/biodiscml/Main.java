@@ -24,6 +24,7 @@ import java.nio.file.StandardCopyOption;
  */
 public class Main {
 
+    public static final String VERSION = "1.8.15";
     public static boolean debug = false;
     public static boolean debug2 = false;
     public static boolean printFailedModels = false; //print errors of failed models
@@ -118,7 +119,7 @@ public class Main {
     public static String positiveClass = "";
 
     public static void main(String[] args) throws IOException {
-        System.out.println("#### BioDiscML ####\n");
+        System.out.println("#### BioDiscML " + VERSION + " ####\n");
         // check java version
         String version = System.getProperty("java.version");
         if (!version.contains("1.8")) {
@@ -400,6 +401,10 @@ public class Main {
         for (String s : options) {
             if (s.trim().equals("help")) {
                 System.out.println("Read readme.md file or https://github.com/mickaelleclercq/BioDiscML");
+                System.exit(0);
+            }
+            if (s.trim().equals("version")) {
+                System.out.println("BioDiscML " + VERSION);
                 System.exit(0);
             }
             if (s.contains("=")) {
