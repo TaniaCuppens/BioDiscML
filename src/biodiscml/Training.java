@@ -23,6 +23,8 @@ import utils.Weka_module;
 import utils.utils;
 import weka.attributeSelection.AttributeSelection;
 import weka.classifiers.Classifier;
+import weka.core.Attribute;
+import weka.core.Instances;
 
 /**
  *
@@ -97,6 +99,7 @@ public class Training {
             if (Main.debug) {
                 System.out.println("Only use classification algorithms");
             }
+            printPositiveClass(weka.myData);
             //HEADER FOR SUMMARY OUTPUT
             resultsSummaryHeader = "ID"
                     + "\tclassifier"
@@ -495,6 +498,33 @@ public class Training {
             System.out.println("Total model tested: " + cptPassed + "/" + alClassifiers.size()
                     + ", including " + cptFailed + " incompatible models");
             pw.close();
+        }
+    }
+
+    /**
+     * print which class is used as positive class for SEN, SPE, PPV, etc.
+     *
+     * @param data
+     */
+    public static void printPositiveClass(Instances data) {
+        try {
+            Attribute classAttribute = data.attribute(data.numAttributes() - 1);
+            if (classAttribute.isNominal() && classAttribute.numValues() == 2) {
+                if (!Main.positiveClass.isEmpty() && classAttribute.indexOfValue(Main.positiveClass) < 0) {
+                    System.err.println("[warning] positiveClass " + Main.positiveClass
+                            + " is not a value of the class " + classAttribute);
+                }
+                System.out.println("Positive class (for SEN, SPE, FPR, FNR, PPV, FDR, Fscore, AUPRC): "
+                        + classAttribute.value(Weka_module.getPositiveClassIndex(classAttribute))
+                        + ". Use the positiveClass option to choose it.");
+            } else if (classAttribute.isNominal()) {
+                System.out.println("More than 2 classes: SEN, SPE, FPR, FNR, PPV, FDR, Fscore and AUPRC "
+                        + "are averages weighted by class size");
+            }
+        } catch (Exception e) {
+            if (Main.debug) {
+                e.printStackTrace();
+            }
         }
     }
 
