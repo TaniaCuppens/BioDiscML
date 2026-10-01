@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicIntegerArray;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.integration.TrapezoidIntegrator;
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
@@ -757,8 +756,10 @@ public class Weka_module {
                 r.setInputFormat(data);
                 data = Filter.useFilter(data, r);
                 data.setClassIndex(data.numAttributes() - 1);
-
-                //create weka configuration string
+            }
+            if (!classifier.contains("meta.Vote")) {
+                //create weka configuration string, removing the ID (first
+                //attribute) also when the dataset is used as is (attributesToUse == null)
                 String filterID = "weka.classifiers.meta.FilteredClassifier "
                         + "-F \"weka.filters.unsupervised.attribute.Remove -R 1\" "
                         + "-W weka.classifiers.";
@@ -781,13 +782,15 @@ public class Weka_module {
             eval.evaluateModel(model, data);
 
             // Apparent error rate
-            Double err = eval.errorRate();
+            double err = eval.errorRate();
 
-            // Calculate Leave One Out (LOO) Bootstrap
-            AtomicIntegerArray p_l = new AtomicIntegerArray(data.numClasses());
-            AtomicIntegerArray q_l = new AtomicIntegerArray(data.numClasses());
+            // No-information error rate, from the model fitted on the whole data
+            double gamma = noInformationErrorRate(eval.confusionMatrix());
+
+            // Leave-one-out bootstrap error: error of the models on the
+            // instances left out of their bootstrap sample
             double sum = 0;
-
+            int validRepetitions = 0;
             for (int i = 0; i < Main.bootstrapAndRepeatedHoldoutFolds; i++) {
                 Random r = new Random(repetitionSeed(i));
 
@@ -800,6 +803,10 @@ public class Weka_module {
                     // Add to TRAIN, remove from TEST
                     al_trainSet.add(instance);
                     al_testSet.remove(instance);
+                }
+                // no instance left out: nothing to evaluate
+                if (al_testSet.isEmpty()) {
+                    continue;
                 }
                 //train the train set
                 Instances trainSet = new Instances(data, al_trainSet.size());
@@ -814,51 +821,11 @@ public class Weka_module {
 
                 // total error rates
                 sum += evaluation.errorRate();
-
-                //GAMMA
-                double[][] confusionMatrix = evaluation.confusionMatrix();
-                for (int l = 0; l < data.numClasses(); l++) {
-                    int p_tmp = 0, q_tmp = 0;
-                    for (int n = 0; n < data.numClasses(); n++) {
-                        // Sum for l-th class
-                        p_tmp += confusionMatrix[l][n];
-                        q_tmp += confusionMatrix[n][l];
-                    }
-
-                    // Add data for l-th class
-                    p_l.addAndGet(l, p_tmp);
-                    q_l.addAndGet(l, q_tmp);
-                }
+                validRepetitions++;
             }
-            double Err1 = sum / Main.bootstrapAndRepeatedHoldoutFolds;
+            double Err1 = sum / validRepetitions;
 
-            // Plain 0.632 bootstrap
-            Double Err632 = .368 * err + .632 * Err1;
-
-            // GAMA
-            final double observations = data.size() * Main.bootstrapAndRepeatedHoldoutFolds;
-            double gama = 0;
-            for (int l = 0; l < data.numClasses(); l++) {
-                // Normalize numbers -> divide by number of all observations (repeats * dataset size)
-                gama += ((double) p_l.get(l) / observations) * (1 - ((double) q_l.get(l) / observations));
-            }
-
-            // Relative overfitting rate (R)
-            double R = (Err1 - err) / (gama - err);
-
-            // Modified variables (according to original journal article)
-            double Err1_ = Double.min(Err1, gama);
-            double R_ = R;
-
-            // R can fall out of [0, 1] -> set it to 0
-            if (!(Err1 > err && gama > err)) {
-                R_ = 0;
-            }
-
-            // The 0.632+ bootstrap (as used in original article)
-            double Err632plus = Err632 + (Err1_ - err) * (.368 * .632 * R_) / (1 - .368 * R_);
-
-            return Err632plus;
+            return compute632plus(err, Err1, gamma);
 
         } catch (Exception e) {
             if (Main.debug) {
@@ -866,6 +833,60 @@ public class Weka_module {
             }
             return -1.0;
         }
+    }
+
+    /**
+     * No-information error rate of Efron and Tibshirani (1997):
+     * gamma = sum over classes l of p_l * (1 - q_l), where p_l is the observed
+     * proportion of class l and q_l the proportion of predictions of class l,
+     * both for the model fitted on the whole dataset.
+     *
+     * @param confusionMatrix confusion matrix of the model fitted and evaluated
+     * on the whole dataset (rows: actual class, columns: predicted class)
+     * @return gamma
+     */
+    public static double noInformationErrorRate(double[][] confusionMatrix) {
+        int numClasses = confusionMatrix.length;
+        double total = 0;
+        double[] actual = new double[numClasses];
+        double[] predicted = new double[numClasses];
+        for (int l = 0; l < numClasses; l++) {
+            for (int n = 0; n < numClasses; n++) {
+                actual[l] += confusionMatrix[l][n];
+                predicted[n] += confusionMatrix[l][n];
+                total += confusionMatrix[l][n];
+            }
+        }
+        double gamma = 0;
+        for (int l = 0; l < numClasses; l++) {
+            gamma += (actual[l] / total) * (1 - predicted[l] / total);
+        }
+        return gamma;
+    }
+
+    /**
+     * The .632+ bootstrap estimate of the error rate (Efron and Tibshirani,
+     * 1997, "Improvements on cross-validation: the .632+ bootstrap method").
+     *
+     * @param err apparent (resubstitution) error rate
+     * @param Err1 leave-one-out bootstrap error rate
+     * @param gamma no-information error rate
+     * @return the .632+ error rate
+     */
+    public static double compute632plus(double err, double Err1, double gamma) {
+        // Plain 0.632 bootstrap
+        double Err632 = .368 * err + .632 * Err1;
+
+        // Modified variables (according to original journal article)
+        double Err1_ = Math.min(Err1, gamma);
+        // Relative overfitting rate, in [0, 1]
+        double R_ = 0;
+        if (Err1 > err && gamma > err) {
+            R_ = (Err1_ - err) / (gamma - err);
+        }
+
+        // The 0.632+ bootstrap (as used in original article)
+        return Err632 + (Err1_ - err) * (.368 * .632 * R_) / (1 - .368 * R_);
     }
 
     public void attributeSelectionByRelieFFAndSaveToCSV(String outfile) {
