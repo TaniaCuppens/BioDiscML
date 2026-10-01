@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import org.apache.commons.math3.stat.descriptive.moment.*;
 import utils.Weka_module;
@@ -37,8 +38,9 @@ public class Training {
     public static ArrayList<String[]> alClassifiers = new ArrayList<>();
     public static boolean isClassification = true;
     public static String resultsSummaryHeader = "";
-    public static int cptPassed = 0;
-    public static int cptFailed = 0;
+    // incremented by the parallel training threads
+    public static AtomicInteger cptPassed = new AtomicInteger();
+    public static AtomicInteger cptFailed = new AtomicInteger();
     public boolean parrallel = true;
     public static String trainFileName = "";
     public static PrintWriter pw;
@@ -431,6 +433,7 @@ public class Training {
                 String s = alClassifiers.get(i)[0] + "\t" + alClassifiers.get(i)[1] + "\t" + alClassifiers.get(i)[2] + "\t" + alClassifiers.get(i)[3];
                 if (hm.containsKey(s)) {
                     alClassifiers.remove(i);
+                    i--; // the next item is now at index i
                 }
             }
             int alClassifiersAfterRemoval = alClassifiers.size();
@@ -601,7 +604,7 @@ public class Training {
             String valueToMaximizeOrMinimize, String searchMethod) {
         String out = classifier + "\t" + classifier_options + "\t" + valueToMaximizeOrMinimize.toUpperCase() + "\t" + searchMethod;
         Instant start = Instant.now();
-        System.out.println("[model] (" + (cptPassed++) + "/" + alClassifiers.size() + ")" + out);
+        System.out.println("[model] (" + cptPassed.getAndIncrement() + "/" + alClassifiers.size() + ")" + out);
         String lastOutput = "";
         // models are trained in parallel and DecimalFormat is not thread-safe
         DecimalFormat df = utils.newDecimalFormat();
@@ -1246,7 +1249,7 @@ public class Training {
 
                     //output
                     String bt632 = df.format(bootstrapTrain632plus);
-                    if (bt632.equals(1000)) {
+                    if (bootstrapTrain632plus == 1000) {
                         bt632 = "";
                     }
                     String btt632 = df.format(bootstrapTrainTest632plus);
@@ -1444,7 +1447,7 @@ public class Training {
 
         } catch (Exception e) {
             out = "ERROR\t" + classifier + " " + classifier_options + " | " + searchMethod + " | " + e.getMessage();
-            cptFailed++;
+            cptFailed.incrementAndGet();
             if (Main.debug) {
                 e.printStackTrace();
             }
