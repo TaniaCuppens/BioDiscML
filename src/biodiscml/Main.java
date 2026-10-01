@@ -48,7 +48,8 @@ public class Main {
 
     //source files
     public static HashMap<String, String> hmTrainFiles = new HashMap<>();//filename, identifier prefix
-    public static HashMap<String, String> hmNewDataFiles = new HashMap<>();//filename, identifier prefix
+    public static HashMap<String, String> hmNewDataFiles = new HashMap<>();//filename, identifier prefix (-predict)
+    public static HashMap<String, String> hmValidationFiles = new HashMap<>();//filename, identifier prefix (-train)
 
     //options
     public static Boolean doClassification = false;
@@ -570,9 +571,9 @@ public class Main {
                 break;
             case "validationFile":
                 try {
-                    hmNewDataFiles.put(wd + value.split(",")[0].trim(), value.split(",")[1].trim()); //filename,prefix
+                    hmValidationFiles.put(wd + value.split(",")[0].trim(), value.split(",")[1].trim()); //filename,prefix
                 } catch (Exception e) {
-                    hmNewDataFiles.put(wd + value.replace(",", "").trim(), ""); //filename
+                    hmValidationFiles.put(wd + value.replace(",", "").trim(), ""); //filename
                 }
                 break;
             case "excluded":
