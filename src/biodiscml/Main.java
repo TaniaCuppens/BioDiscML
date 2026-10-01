@@ -108,6 +108,9 @@ public class Main {
     static boolean ROCcurves = false; //experimental
     static boolean UpSetR = false; //experimental
     static boolean performShortTest = true;
+    // seed of all random number generators (sampling, cross validations,
+    // holdouts, bootstraps), so that two identical runs give identical results
+    public static int seed = 1;
 
     public static void main(String[] args) throws IOException {
         System.out.println("#### BioDiscML ####\n");
@@ -737,6 +740,9 @@ public class Main {
                 break;
             case "performShortTest":
                 performShortTest = Boolean.valueOf(value.trim());
+                break;
+            case "seed":
+                seed = Integer.valueOf(value.trim());
                 break;
             case "missingValueToReplace":
                 missingValueToReplace = value.trim();

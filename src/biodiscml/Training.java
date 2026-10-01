@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.IntStream;
 import org.apache.commons.math3.stat.descriptive.moment.*;
 import utils.Weka_module;
 import utils.utils;
@@ -443,24 +444,23 @@ public class Training {
             System.out.println("Total classifiers to test: " + alClassifiers.size());
 
             if (parrallel) {
-                alClassifiers
-                        .parallelStream()
-                        .map((classif) -> StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]))
-                        .map((s) -> {
-                            if (!s.toLowerCase().contains("error")) {
-                                pw.println(s);
-                                pw.flush();
-                            } else if (Main.printFailedModels) {
-                                pw.println(s);
-                                pw.flush();
-                            }
-                            return s;
-                        })
-                        .sorted()
-                        .forEach((_item) -> {
+                // results are written as soon as each model is done (so that an
+                // interrupted run can be resumed), then the file is rewritten in
+                // the order of the queue, so that it does not depend on thread timing
+                String[] outputs = new String[alClassifiers.size()];
+                IntStream.range(0, alClassifiers.size()).parallel().forEach((i) -> {
+                    String[] classif = alClassifiers.get(i);
+                    String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    if (!s.toLowerCase().contains("error") || Main.printFailedModels) {
+                        outputs[i] = s;
+                        synchronized (pw) {
+                            pw.println(s);
                             pw.flush();
-                        });
-
+                        }
+                    }
+                });
+                pw.close();
+                sortResultsFile(resultsFile, outputs);
             } else {
                 alClassifiers.stream().map((classif) -> {
                     String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
@@ -495,6 +495,47 @@ public class Training {
             System.out.println("Total model tested: " + cptPassed + "/" + alClassifiers.size()
                     + ", including " + cptFailed + " incompatible models");
             pw.close();
+        }
+    }
+
+    /**
+     * Rewrite the results file with the models of this run in the order of
+     * the queue. Lines that were already in the file before this run (resumed
+     * training) are kept first, in their original order.
+     *
+     * @param resultsFile
+     * @param outputs output line of each model of the queue (null if not
+     * written)
+     */
+    private static void sortResultsFile(String resultsFile, String[] outputs) {
+        try {
+            HashMap<String, String> hmThisRun = new HashMap<>();
+            for (String output : outputs) {
+                if (output != null) {
+                    hmThisRun.put(output, "");
+                }
+            }
+            ArrayList<String> lines = new ArrayList<>();
+            BufferedReader br = new BufferedReader(new FileReader(resultsFile));
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!hmThisRun.containsKey(line)) {
+                    lines.add(line);
+                }
+            }
+            br.close();
+            for (String output : outputs) {
+                if (output != null) {
+                    lines.add(output);
+                }
+            }
+            PrintWriter pwSorted = new PrintWriter(new FileWriter(resultsFile));
+            for (String l : lines) {
+                pwSorted.println(l);
+            }
+            pwSorted.close();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -1284,7 +1325,8 @@ public class Training {
                 }
 
                 //CREATE ID
-                Random r = new Random();
+                // seeded by the model configuration, so that IDs are reproducible
+                Random r = new Random(Main.seed + out.hashCode());
                 int randomNumber = r.nextInt(10000 - 10) + 10;
                 out = (lastOutput.split("\t")[0] + "_" + lastOutput.split("\t")[2]
                         + "_" + lastOutput.split("\t")[3] + "_" + lastOutput.split("\t")[4] + "_" + lastOutput.split("\t")[5] + "_" + randomNumber);
