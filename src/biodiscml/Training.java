@@ -390,6 +390,22 @@ public class Training {
             }
 
         }
+        //skip the models with an unknown optimizer: the stepwise searches
+        //would fail, and the topX and all searches would be labelled with it
+        HashMap<String, String> hmUnknownOptimizers = new HashMap<>();
+        for (int i = 0; i < alClassifiers.size(); i++) {
+            String optimizer = alClassifiers.get(i)[2];
+            if (!KNOWN_OPTIMIZERS.contains(optimizer.toLowerCase().trim())) {
+                hmUnknownOptimizers.put(optimizer, "");
+                alClassifiers.remove(i);
+                i--;
+            }
+        }
+        for (String unknownOptimizer : hmUnknownOptimizers.keySet()) {
+            System.err.println("[warning] Unknown optimizer " + unknownOptimizer
+                    + ": the models using it are skipped. Available optimizers: " + KNOWN_OPTIMIZERS);
+        }
+
         //resume training, remove from alClassifier all classifiers already trained
         if (Main.resumeTraining && !Main.restoreRun) {
             HashMap<String, String> hm = new HashMap<>();
@@ -1466,7 +1482,7 @@ public class Training {
     private static double getValueToMaximize(String valueWanted, Weka_module.ClassificationResultsObject cr,
             Weka_module.RegressionResultsObject rr) {
 
-        switch (valueWanted.toLowerCase()) {
+        switch (valueWanted.toLowerCase().trim()) {
             //classification
             case "auc":
                 return Double.parseDouble(cr.AUC);
@@ -1475,14 +1491,17 @@ public class Training {
             case "acc":
                 return Double.parseDouble(cr.ACC);
             case "sen":
+            case "tpr":
                 return Double.parseDouble(cr.TPR);
             case "spe":
+            case "tnr":
                 return Double.parseDouble(cr.TNR);
             case "mcc":
                 return Double.parseDouble(cr.MCC);
             case "kappa":
                 return Double.parseDouble(cr.kappa);
-            case "aupcr":
+            case "auprc":
+            case "aupcr": //misspelling accepted in previous versions
                 return Double.parseDouble(cr.AUPRC);
             case "fscore":
                 return Double.parseDouble(cr.Fscore);
@@ -1509,8 +1528,16 @@ public class Training {
             case "rrse":
                 return Double.parseDouble(rr.RRSE);//to minimize
         }
-        return 0;
+        throw new IllegalArgumentException("unknown optimizer " + valueWanted);
     }
+
+    /**
+     * optimizers accepted by getValueToMaximize
+     */
+    private static final List<String> KNOWN_OPTIMIZERS = java.util.Arrays.asList(
+            "auc", "pauc", "acc", "sen", "tpr", "spe", "tnr", "mcc", "kappa", "auprc", "aupcr",
+            "fscore", "precision", "recall", "fdr", "ber", "tp+fn",
+            "cc", "mae", "rmse", "rae", "rrse");
 
     /**
      * add to hm weka configurations
