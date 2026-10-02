@@ -825,6 +825,10 @@ public class Main {
             case "missingValueToReplace":
                 missingValueToReplace = value.trim();
                 break;
+            default:
+                // e.g. a misspelled option, which would otherwise be silently ignored
+                System.err.println("[warning] Unknown option " + option + ": ignored");
+                break;
         }
     }
 
