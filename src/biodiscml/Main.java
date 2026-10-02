@@ -544,16 +544,40 @@ public class Main {
 
     }
 
+    /**
+     * @param option
+     * @param value
+     * @return the boolean value: true/yes/1/on or false/no/0/off (any case)
+     */
+    static boolean parseBoolean(String option, String value) {
+        switch (value.trim().toLowerCase()) {
+            case "true":
+            case "yes":
+            case "1":
+            case "on":
+                return true;
+            case "false":
+            case "no":
+            case "0":
+            case "off":
+                return false;
+            default:
+                System.err.println("[warning] Invalid value " + value + " for option " + option
+                        + " (expected true or false): false is used");
+                return false;
+        }
+    }
+
     private static void setOption(String option, String value) {
         switch (option) {
             case "config":
                 configFile = value.trim();
                 break;
             case "debug":
-                debug = Boolean.valueOf(value.trim());
+                debug = parseBoolean(option, value);
                 break;
             case "debug2":
-                debug2 = Boolean.valueOf(value.trim());
+                debug2 = parseBoolean(option, value);
                 break;
             case "wd":
                 wd = value.trim();
@@ -609,7 +633,7 @@ public class Main {
                 break;
 
             case "doClassification":
-                doClassification = Boolean.valueOf(value.trim());
+                doClassification = parseBoolean(option, value);
                 break;
 
             case "classificationClassName":
@@ -619,7 +643,7 @@ public class Main {
                 }
                 break;
             case "classificationFastWay":
-                classificationFastWay = Boolean.valueOf(value.trim());
+                classificationFastWay = parseBoolean(option, value);
                 break;
             case "numberOfBestModels":
                 numberOfBestModels = Integer.valueOf(value.trim());
@@ -676,13 +700,13 @@ public class Main {
                 searchmodes = value.trim().toLowerCase();
                 break;
             case "doRegression":
-                doRegression = Boolean.valueOf(value.trim());
+                doRegression = parseBoolean(option, value);
                 break;
             case "regressionClassName":
                 regressionClassName = value.trim();
                 break;
             case "regressionFastWay":
-                regressionFastWay = Boolean.valueOf(value.trim());
+                regressionFastWay = parseBoolean(option, value);
                 break;
 
             case "roptimizers":
@@ -713,28 +737,28 @@ public class Main {
                 maxRankingScoreDifference = Double.valueOf(value.trim());
                 break;
             case "retreiveCorrelatedGenesByRankingScore":
-                retreiveCorrelatedGenesByRankingScore = Boolean.valueOf(value.trim());
+                retreiveCorrelatedGenesByRankingScore = parseBoolean(option, value);
                 break;
             case "combineModels":
-                combineModels = Boolean.valueOf(value.trim());
+                combineModels = parseBoolean(option, value);
                 break;
             case "retrieveCorrelatedGenes":
-                retrieveCorrelatedGenes = Boolean.valueOf(value.trim());
+                retrieveCorrelatedGenes = parseBoolean(option, value);
                 break;
             case "generateModelWithCorrelatedGenes":
-                generateModelWithCorrelatedGenes = Boolean.valueOf(value.trim());
+                generateModelWithCorrelatedGenes = parseBoolean(option, value);
                 break;
             case "combinationRule":
                 combinationRule = value.trim().toUpperCase();
                 break;
             case "sampling":
-                doSampling = Boolean.valueOf(value.trim());
+                doSampling = parseBoolean(option, value);
                 break;
             case "roc_curves":
-                ROCcurves = Boolean.valueOf(value.trim());
+                ROCcurves = parseBoolean(option, value);
                 break;
             case "loocv":
-                loocv = Boolean.valueOf(value.trim());
+                loocv = parseBoolean(option, value);
                 break;
             case "samplingFold":
                 samplingFold = Integer.valueOf(value.trim());
@@ -743,31 +767,31 @@ public class Main {
                 cpus = value.trim();
                 break;
             case "computeBestModel":
-                computeBestModel = Boolean.valueOf(value.trim());
+                computeBestModel = parseBoolean(option, value);
                 break;
             case "modelFile":
                 modelFile = value.trim();
                 break;
             case "printFailedModels":
-                printFailedModels = Boolean.valueOf(value.trim());
+                printFailedModels = parseBoolean(option, value);
                 break;
             case "resumeTraining":
-                resumeTraining = Boolean.valueOf(value.trim());
+                resumeTraining = parseBoolean(option, value);
                 break;
             case "upsetr":
-                UpSetR = Boolean.valueOf(value.trim());
+                UpSetR = parseBoolean(option, value);
                 break;
             case "repeatedHoldoutTrain":
-                repeatedHoldout = Boolean.valueOf(value.trim());
+                repeatedHoldout = parseBoolean(option, value);
                 break;
             case "bootstrap":
-                bootstrap = Boolean.valueOf(value.trim());
+                bootstrap = parseBoolean(option, value);
                 break;
             case "restoreRun":
-                restoreRun = Boolean.valueOf(value.trim());
+                restoreRun = parseBoolean(option, value);
                 break;
             case "noFeatureSelection":
-                noFeatureSelection = Boolean.valueOf(value.trim());
+                noFeatureSelection = parseBoolean(option, value);
                 break;
             case "previousRunPath":
                 previousRunPath = value.trim();
@@ -776,7 +800,7 @@ public class Main {
                 previousRunProjectName = value.trim();
                 break;
             case "performShortTest":
-                performShortTest = Boolean.valueOf(value.trim());
+                performShortTest = parseBoolean(option, value);
                 break;
             case "positiveClass":
                 positiveClass = value.trim();
