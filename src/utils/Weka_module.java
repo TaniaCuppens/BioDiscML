@@ -279,13 +279,15 @@ public class Weka_module {
     /**
      * Seed of the i-th repetition of the repeated holdout and bootstrap
      * evaluations. With the default seed (1), repetition i uses seed i, as in
-     * previous versions.
+     * previous versions. Each seed has its own series of repetitions (seed s
+     * uses (s-1)*B + i, B being the number of repetitions), so that two
+     * different seeds do not share their resamplings.
      *
      * @param i repetition index
      * @return seed
      */
     public static long repetitionSeed(int i) {
-        return Main.seed - 1L + i;
+        return (Main.seed - 1L) * Main.bootstrapAndRepeatedHoldoutFolds + i;
     }
 
     /**
