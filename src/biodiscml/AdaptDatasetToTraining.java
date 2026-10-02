@@ -259,9 +259,17 @@ public class AdaptDatasetToTraining {
             TreeMap<String, Integer> tm = new TreeMap<>();
             tm.putAll(al_tables.get(0).hmIDsList);
             int existing_spaces = 0;
+            int missingClassLabels = 0;
             for (String id : tm.keySet()) {
                 if (hm_ids.containsKey(id.toLowerCase()) && !id.equals(Main.mergingID.toLowerCase())) {
                     // if (hm_ids.containsKey(id) && !id.equals(Main.mergingID)) {
+                    String classe = myClass.get(al_tables.get(classIndex).getIdIndex(id)).trim();
+                    // an instance without class label can't be used (it would become a class of its own)
+                    if (classe.isEmpty() || classe.equals("?") || classe.equals("NA") || classe.equals("na")
+                            || classe.equals("N/A") || classe.equals("n/a")) {
+                        missingClassLabels++;
+                        continue;
+                    }
                     pw.print(id);
                     for (TableObject tbo : al_tables) {
                         // IDs are matched between files case-insensitively (see getCommonIds)
@@ -278,7 +286,6 @@ public class AdaptDatasetToTraining {
                             }
                         }
                     }
-                    String classe = myClass.get(al_tables.get(classIndex).getIdIndex(id));
                     if (classe.contains(" ")) {
                         existing_spaces++;
                     }
@@ -290,6 +297,9 @@ public class AdaptDatasetToTraining {
             }
             if (existing_spaces > 0) {
                 System.out.println("Spaces detected in class label. They were replaced by _");
+            }
+            if (missingClassLabels > 0) {
+                System.out.println("[warning] " + missingClassLabels + " instance(s) without class label (empty, ?, NA or N/A) ignored");
             }
             pw.flush();
 
