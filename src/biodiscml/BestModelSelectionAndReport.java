@@ -90,13 +90,9 @@ public class BestModelSelectionAndReport {
 
         try {
             BufferedReader br = new BufferedReader(new FileReader(predictionsResultsFile));
-            TreeMap<String, Object> tmModels = new TreeMap<>(); //<metric modelID, classification/regression Object>
+            ArrayList<RankedModel> alModels = new ArrayList<>(); //<metric, modelID, classification/regression Object>
             HashMap<String, Object> hmModels = new HashMap<>(); //<modelID, classification/regression Object>
 
-            //in case of RMSE or BER, we want the minimum value instead of the maximal one
-            if (!metricToMinimize) {
-                tmModels = new TreeMap<>(Collections.reverseOrder());
-            }
             String line = br.readLine();
 
             //fill header mapping
@@ -125,8 +121,8 @@ public class BestModelSelectionAndReport {
                     if (classification) {
                         try {
                             classificationObject co = new classificationObject(line);
-                            tmModels.put(Double.valueOf(co.hmValues.get(Main.bestModelsSortingMetric)) + " " + co.hmValues.get("ID"), co);
                             hmModels.put(co.hmValues.get("ID"), co);
+                            alModels.add(new RankedModel(parseMetric(co.hmValues.get(Main.bestModelsSortingMetric)), co.hmValues.get("ID"), co));
                         } catch (Exception e) {
                             if (Main.debug) {
                                 e.printStackTrace();
@@ -135,8 +131,8 @@ public class BestModelSelectionAndReport {
                     } else {
                         try {
                             regressionObject ro = new regressionObject(line);
-                            tmModels.put(Double.valueOf(ro.hmValues.get(Main.bestModelsSortingMetric)) + " " + ro.hmValues.get("ID"), ro);
                             hmModels.put(ro.hmValues.get("ID"), ro);
+                            alModels.add(new RankedModel(parseMetric(ro.hmValues.get(Main.bestModelsSortingMetric)), ro.hmValues.get("ID"), ro));
                         } catch (Exception e) {
                             if (Main.debug) {
                                 e.printStackTrace();
@@ -147,30 +143,40 @@ public class BestModelSelectionAndReport {
             }
             br.close();
 
+            //sort models by the numeric value of the metric (best first),
+            //then by ID as before (descending when maximizing). Undefined values last.
+            final boolean minimize = metricToMinimize;
+            Collections.sort(alModels, (m1, m2) -> {
+                if (Double.isNaN(m1.metric) || Double.isNaN(m2.metric)) {
+                    return Boolean.compare(Double.isNaN(m1.metric), Double.isNaN(m2.metric));
+                }
+                int c = minimize ? Double.compare(m1.metric, m2.metric) : Double.compare(m2.metric, m1.metric);
+                if (c == 0) {
+                    c = minimize ? m1.id.compareTo(m2.id) : m2.id.compareTo(m1.id);
+                }
+                return c;
+            });
+
             //control available models
-            if (Main.numberOfBestModels > tmModels.size()) {
-                System.out.println("Only " + tmModels.size() + " available models. You have configured " + Main.numberOfBestModels + " best models");
-                Main.numberOfBestModels = tmModels.size();
+            if (Main.numberOfBestModels > alModels.size()) {
+                System.out.println("Only " + alModels.size() + " available models. You have configured " + Main.numberOfBestModels + " best models");
+                Main.numberOfBestModels = alModels.size();
             }
 
             // get best models list
             ArrayList<Object> alBestClassifiers = new ArrayList<>();
             cpt = 0;
             if (Main.hmTrainingBestModelList.isEmpty()) {
-                for (String metricAndModel : tmModels.keySet()) {
+                for (RankedModel rankedModel : alModels) {
                     cpt++;
                     boolean condition = false;
                     if (metricToMinimize) {
-                        condition = Double.valueOf(metricAndModel.split(" ")[0]) < Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric < Main.bestModelsSortingMetricThreshold;
                     } else {
-                        condition = Double.valueOf(metricAndModel.split(" ")[0]) > Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric > Main.bestModelsSortingMetricThreshold;
                     }
                     if (condition && cpt <= Main.numberOfBestModels) {
-                        if (classification) {
-                            alBestClassifiers.add(((classificationObject) tmModels.get(metricAndModel)));
-                        } else {
-                            alBestClassifiers.add(((regressionObject) tmModels.get(metricAndModel)));
-                        }
+                        alBestClassifiers.add(rankedModel.model);
                     }
                 }
             } else {
@@ -1344,6 +1350,37 @@ public class BestModelSelectionAndReport {
             }
         }
 
+    }
+
+    /**
+     * parse a metric of the results file. Older versions could write values
+     * >= 1000 with a grouping separator (1,234.5): it is removed.
+     *
+     * @param value
+     * @return the value, NaN if it is not a number
+     */
+    private static double parseMetric(String value) {
+        try {
+            return Double.parseDouble(value.replace(",", "").trim());
+        } catch (Exception e) {
+            return Double.NaN;
+        }
+    }
+
+    /**
+     * a model of the results file with its sorting metric
+     */
+    private static class RankedModel {
+
+        public double metric;
+        public String id;
+        public Object model;
+
+        private RankedModel(double metric, String id, Object model) {
+            this.metric = metric;
+            this.id = id;
+            this.model = model;
+        }
     }
 
     private static class RankerObject {
