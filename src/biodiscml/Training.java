@@ -435,6 +435,7 @@ public class Training {
                 String s = alClassifiers.get(i)[0] + "\t" + alClassifiers.get(i)[1] + "\t" + alClassifiers.get(i)[2] + "\t" + alClassifiers.get(i)[3];
                 if (hm.containsKey(s)) {
                     alClassifiers.remove(i);
+                    i--; // the next item is now at index i
                 }
             }
             int alClassifiersAfterRemoval = alClassifiers.size();
