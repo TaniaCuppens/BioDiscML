@@ -615,12 +615,7 @@ public class Training {
         // models are trained in parallel and DecimalFormat is not thread-safe
         DecimalFormat df = utils.newDecimalFormat();
 
-        boolean minimize = valueToMaximizeOrMinimize.equals("fdr")
-                || valueToMaximizeOrMinimize.equals("mae")
-                || valueToMaximizeOrMinimize.equals("rmse")
-                || valueToMaximizeOrMinimize.equals("ber")
-                || valueToMaximizeOrMinimize.equals("rae")
-                || valueToMaximizeOrMinimize.equals("rrse");
+        boolean minimize = isMinimizedOptimizer(valueToMaximizeOrMinimize);
 
         try {
             Object o = null;
@@ -1538,6 +1533,24 @@ public class Training {
             "auc", "pauc", "acc", "sen", "tpr", "spe", "tnr", "mcc", "kappa", "auprc", "aupcr",
             "fscore", "precision", "recall", "fdr", "ber", "tp+fn",
             "cc", "mae", "rmse", "rae", "rrse");
+
+    /**
+     * @param optimizer
+     * @return true if the optimizer is an error rate, to minimize
+     */
+    private static boolean isMinimizedOptimizer(String optimizer) {
+        switch (optimizer.toLowerCase().trim()) {
+            case "fdr":
+            case "mae":
+            case "rmse":
+            case "ber":
+            case "rae":
+            case "rrse":
+                return true;
+            default:
+                return false;
+        }
+    }
 
     /**
      * add to hm weka configurations
