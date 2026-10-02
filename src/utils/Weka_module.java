@@ -291,6 +291,114 @@ public class Weka_module {
     }
 
     /**
+     * Group the instances by class value (nominal class). Instances with a
+     * missing class are in the last group. For a numeric class, one group
+     * with all the instances.
+     *
+     * @param data
+     * @return groups of instances, in the order of data
+     */
+    private static ArrayList<ArrayList<Instance>> groupByClass(Instances data) {
+        ArrayList<ArrayList<Instance>> groups = new ArrayList<>();
+        if (data.classAttribute().isNominal()) {
+            for (int c = 0; c <= data.numClasses(); c++) {
+                groups.add(new ArrayList<>());
+            }
+            for (Instance instance : data) {
+                groups.get(instance.classIsMissing() ? data.numClasses() : (int) instance.classValue()).add(instance);
+            }
+        } else {
+            groups.add(new ArrayList<>(data));
+        }
+        return groups;
+    }
+
+    /**
+     * Stratified split: each class is split separately with the same
+     * fraction, so that the train and test sets keep the class proportions.
+     * A class with at least 2 instances has at least one instance in each
+     * set.
+     *
+     * @param data
+     * @param trainFraction fraction of the instances in the train set
+     * @param r
+     * @return {train, test}
+     */
+    public static Instances[] stratifiedSplit(Instances data, double trainFraction, Random r) {
+        Instances train = new Instances(data, data.numInstances());
+        Instances test = new Instances(data, data.numInstances());
+        for (ArrayList<Instance> group : groupByClass(data)) {
+            Collections.shuffle(group, r);
+            int nTrain = (int) Math.round(group.size() * trainFraction);
+            if (group.size() > 1) {
+                nTrain = Math.max(1, Math.min(group.size() - 1, nTrain));
+            }
+            for (int i = 0; i < group.size(); i++) {
+                if (i < nTrain) {
+                    train.add(group.get(i));
+                } else {
+                    test.add(group.get(i));
+                }
+            }
+        }
+        // the sets are built class by class: shuffle them, since some
+        // classifiers depend on the order of the training instances
+        train.randomize(r);
+        test.randomize(r);
+        return new Instances[]{train, test};
+    }
+
+    /**
+     * Bootstrap sample (as many instances as in data, drawn with
+     * replacement) and the instances left out of it. For a nominal class,
+     * each class is resampled separately (stratified bootstrap), so that
+     * the class proportions are kept.
+     *
+     * @param data
+     * @param r
+     * @return {bootstrap sample, instances not drawn}
+     */
+    public static Instances[] bootstrapSample(Instances data, Random r) {
+        ArrayList<Instance> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
+        ArrayList<Instance> al_testSet;
+        if (data.classAttribute().isNominal()) {
+            al_testSet = new ArrayList<>();
+            for (ArrayList<Instance> group : groupByClass(data)) {
+                boolean[] drawn = new boolean[group.size()];
+                for (int j = 0; j < group.size(); j++) {
+                    int k = r.nextInt(group.size());
+                    al_trainSet.add(group.get(k));
+                    drawn[k] = true;
+                }
+                for (int k = 0; k < group.size(); k++) {
+                    if (!drawn[k]) {
+                        al_testSet.add(group.get(k));
+                    }
+                }
+            }
+            // the sample is drawn class by class: shuffle it, since some
+            // classifiers depend on the order of the training instances
+            Collections.shuffle(al_trainSet, r);
+            Collections.shuffle(al_testSet, r);
+        } else {
+            al_testSet = new ArrayList<>(data); // Full (remove one-by-one)
+            for (int j = 0; j < data.size(); j++) {
+                // Random select instance
+                Instance instance = data.get(r.nextInt(data.size()));
+                // Add to TRAIN, remove from TEST
+                al_trainSet.add(instance);
+                al_testSet.remove(instance);
+            }
+        }
+        //prepare train and test sets
+        Instances trainSet = new Instances(data, al_trainSet.size());
+        trainSet.addAll(al_trainSet);
+        Instances testSet = new Instances(data, al_testSet.size());
+        testSet.addAll(al_testSet);
+        return new Instances[]{trainSet, testSet};
+    }
+
+    /**
      * short test on 10% of instances
      *
      * @param attributesToUse
@@ -554,14 +662,24 @@ public class Weka_module {
                 configuration = filterID + "" + classifier + " -- " + classifier_options;
             }
 
-            // randomize data
-            data.randomize(new Random(repetitionSeed(seed)));
+            Random random = new Random(repetitionSeed(seed));
+            Instances train;
+            Instances test;
+            if (data.classAttribute().isNominal()) {
+                // Stratified percent split
+                Instances[] split = stratifiedSplit(data, 0.66, random);
+                train = split[0];
+                test = split[1];
+            } else {
+                // randomize data
+                data.randomize(random);
 
-            // Percent split
-            int trainSize = (int) Math.round(data.numInstances() * 66 / 100);
-            int testSize = data.numInstances() - trainSize;
-            Instances train = new Instances(data, 0, trainSize);
-            Instances test = new Instances(data, trainSize, testSize);
+                // Percent split
+                int trainSize = (int) Math.round(data.numInstances() * 66 / 100);
+                int testSize = data.numInstances() - trainSize;
+                train = new Instances(data, 0, trainSize);
+                test = new Instances(data, trainSize, testSize);
+            }
 
             //if cost sensitive case
             if (classifier.contains("CostSensitiveClassifier")) {
@@ -677,20 +795,9 @@ public class Weka_module {
             }
 
             // Custom sampling (100%, with replacement)
-            ArrayList<Instance> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
-            ArrayList<Instance> al_testSet = new ArrayList<>(data); // Full (remove one-by-one)
-            for (int j = 0; j < data.size(); j++) {
-                // Random select instance
-                Instance instance = data.get(r.nextInt(data.size()));
-                // Add to TRAIN, remove from TEST
-                al_trainSet.add(instance);
-                al_testSet.remove(instance);
-            }
-            //prepare train and test sets
-            Instances trainSet = new Instances(data, al_trainSet.size());
-            trainSet.addAll(al_trainSet);
-            Instances testSet = new Instances(data, al_testSet.size());
-            testSet.addAll(al_testSet);
+            Instances[] sample = bootstrapSample(data, r);
+            Instances trainSet = sample[0];
+            Instances testSet = sample[1];
 
             //train the train set            
             try {
@@ -797,27 +904,17 @@ public class Weka_module {
                 Random r = new Random(repetitionSeed(i));
 
                 // Custom sampling (100%, with replacement)
-                ArrayList<Instance> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
-                ArrayList<Instance> al_testSet = new ArrayList<>(data); // Full (remove one-by-one)
-                for (int j = 0; j < data.size(); j++) {
-                    // Random select instance
-                    Instance instance = data.get(r.nextInt(data.size()));
-                    // Add to TRAIN, remove from TEST
-                    al_trainSet.add(instance);
-                    al_testSet.remove(instance);
-                }
+                Instances[] sample = bootstrapSample(data, r);
+                Instances trainSet = sample[0];
+                Instances testSet = sample[1];
                 // no instance left out: nothing to evaluate
-                if (al_testSet.isEmpty()) {
+                if (testSet.isEmpty()) {
                     continue;
                 }
                 //train the train set
-                Instances trainSet = new Instances(data, al_trainSet.size());
-                trainSet.addAll(al_trainSet);
                 model.buildClassifier(trainSet);
 
                 // Test the test set
-                Instances testSet = new Instances(data, al_testSet.size());
-                testSet.addAll(al_testSet);
                 Evaluation evaluation = new Evaluation(data);
                 evaluation.evaluateModel(model, testSet);
 
