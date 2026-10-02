@@ -260,7 +260,7 @@ public class Weka_module {
 
             // cross validation 10 times on the model
             Evaluation eval = new Evaluation(data);
-            eval.crossValidateModel(model, data, numberOfFolds, new Random(1));
+            eval.crossValidateModel(model, data, numberOfFolds, new Random(Main.seed));
 
             //output classification results
             //System.out.println(eval.toSummaryString());
@@ -275,6 +275,20 @@ public class Weka_module {
             e.printStackTrace();
         }
         return al;
+    }
+
+    /**
+     * Seed of the i-th repetition of the repeated holdout and bootstrap
+     * evaluations. With the default seed (1), repetition i uses seed i, as in
+     * previous versions. Each seed has its own series of repetitions (seed s
+     * uses (s-1)*B + i, B being the number of repetitions), so that two
+     * different seeds do not share their resamplings.
+     *
+     * @param i repetition index
+     * @return seed
+     */
+    public static long repetitionSeed(int i) {
+        return (Main.seed - 1L) * Main.bootstrapAndRepeatedHoldoutFolds + i;
     }
 
     /**
@@ -293,7 +307,7 @@ public class Weka_module {
             Instances data = new Instances(myData);
             //get a sample of instances
             //// randomize data
-            data.randomize(new Random());
+            data.randomize(new Random(Main.seed));
 
             //// Percent split
             int trainSize = (int) Math.round(data.numInstances() * 95 / 100);
@@ -456,7 +470,7 @@ public class Weka_module {
             pt.setBuffer(sb);
 
             //10 fold cross validation
-            eval.crossValidateModel(model, data, numberOfFolds, new Random(1), pt, new Range("first,last"), true);
+            eval.crossValidateModel(model, data, numberOfFolds, new Random(Main.seed), pt, new Range("first,last"), true);
 
             if (Main.debug2) {
                 Instant finish = Instant.now();
@@ -542,7 +556,7 @@ public class Weka_module {
             }
 
             // randomize data
-            data.randomize(new Random(seed));
+            data.randomize(new Random(repetitionSeed(seed)));
 
             // Percent split
             int trainSize = (int) Math.round(data.numInstances() * 66 / 100);
@@ -648,7 +662,7 @@ public class Weka_module {
                 configuration = filterID + "" + classifier + " -- " + classifier_options;
             }
 
-            Random r = new Random(seed);
+            Random r = new Random(repetitionSeed(seed));
             //train
             String config[] = Utils.splitOptions(configuration);
             String classname = config[0];
@@ -777,7 +791,7 @@ public class Weka_module {
             double sum = 0;
 
             for (int i = 0; i < Main.bootstrapAndRepeatedHoldoutFolds; i++) {
-                Random r = new Random();
+                Random r = new Random(repetitionSeed(i));
 
                 // Custom sampling (100%, with replacement)
                 ArrayList<Instance> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
@@ -1840,9 +1854,8 @@ public class Weka_module {
             data.setClassIndex(data.numAttributes() - 1);
         }
         DecimalFormat df = utils.newDecimalFormat();
-        //calculate seed
-        Random rand = new Random();
-        int seed = 1 + rand.nextInt(1000);
+        //seed of the train/test split
+        int seed = Main.seed;
 
         try {
             Instances TestData = null;

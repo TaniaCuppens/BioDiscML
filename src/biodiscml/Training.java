@@ -1284,7 +1284,8 @@ public class Training {
                 }
 
                 //CREATE ID
-                Random r = new Random();
+                // seeded by the model configuration, so that IDs are reproducible
+                Random r = new Random(Main.seed + out.hashCode());
                 int randomNumber = r.nextInt(10000 - 10) + 10;
                 out = (lastOutput.split("\t")[0] + "_" + lastOutput.split("\t")[2]
                         + "_" + lastOutput.split("\t")[3] + "_" + lastOutput.split("\t")[4] + "_" + lastOutput.split("\t")[5] + "_" + randomNumber);
