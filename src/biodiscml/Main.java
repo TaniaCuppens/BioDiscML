@@ -120,6 +120,14 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         System.out.println("#### BioDiscML ####\n");
+        // -help works with any java version
+        for (String arg : args) {
+            String a = arg.trim().replaceFirst("^-+", "");
+            if (a.equals("help")) {
+                System.out.println("Read readme.md file or https://github.com/mickaelleclercq/BioDiscML");
+                System.exit(0);
+            }
+        }
         // check java version
         String version = System.getProperty("java.version");
         if (!version.contains("1.8")) {
@@ -414,7 +422,7 @@ public class Main {
         //set options
         boolean prefixesDefined = false;
         for (String s : options) {
-            if (s.equals("help")) {
+            if (s.trim().equals("help")) {
                 System.out.println("Read readme.md file or https://github.com/mickaelleclercq/BioDiscML");
                 System.exit(0);
             }
