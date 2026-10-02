@@ -316,19 +316,41 @@ public class Weka_module {
      * with all the instances.
      *
      * @param data
-     * @return groups of instances, in the order of data
+     * @return groups of instance indexes, in the order of data
      */
-    private static ArrayList<ArrayList<Instance>> groupByClass(Instances data) {
-        ArrayList<ArrayList<Instance>> groups = new ArrayList<>();
+    private static ArrayList<ArrayList<Integer>> groupIndexesByClass(Instances data) {
+        ArrayList<ArrayList<Integer>> groups = new ArrayList<>();
         if (data.classAttribute().isNominal()) {
             for (int c = 0; c <= data.numClasses(); c++) {
                 groups.add(new ArrayList<>());
             }
-            for (Instance instance : data) {
-                groups.get(instance.classIsMissing() ? data.numClasses() : (int) instance.classValue()).add(instance);
+            for (int k = 0; k < data.numInstances(); k++) {
+                Instance instance = data.instance(k);
+                groups.get(instance.classIsMissing() ? data.numClasses() : (int) instance.classValue()).add(k);
             }
         } else {
-            groups.add(new ArrayList<>(data));
+            groups.add(new ArrayList<>());
+            for (int k = 0; k < data.numInstances(); k++) {
+                groups.get(0).add(k);
+            }
+        }
+        return groups;
+    }
+
+    /**
+     * Same as groupIndexesByClass, with the instances themselves
+     *
+     * @param data
+     * @return groups of instances, in the order of data
+     */
+    private static ArrayList<ArrayList<Instance>> groupByClass(Instances data) {
+        ArrayList<ArrayList<Instance>> groups = new ArrayList<>();
+        for (ArrayList<Integer> indexes : groupIndexesByClass(data)) {
+            ArrayList<Instance> group = new ArrayList<>(indexes.size());
+            for (int k : indexes) {
+                group.add(data.instance(k));
+            }
+            groups.add(group);
         }
         return groups;
     }
@@ -379,11 +401,33 @@ public class Weka_module {
      * @return {bootstrap sample, instances not drawn}
      */
     public static Instances[] bootstrapSample(Instances data, Random r) {
-        ArrayList<Instance> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
-        ArrayList<Instance> al_testSet;
+        int[][] sample = bootstrapSampleIndexes(data, r);
+        //prepare train and test sets
+        Instances trainSet = new Instances(data, sample[0].length);
+        for (int k : sample[0]) {
+            trainSet.add(data.instance(k));
+        }
+        Instances testSet = new Instances(data, sample[1].length);
+        for (int k : sample[1]) {
+            testSet.add(data.instance(k));
+        }
+        return new Instances[]{trainSet, testSet};
+    }
+
+    /**
+     * Indexes of the instances of a bootstrap sample (see bootstrapSample)
+     * and of the instances left out of it.
+     *
+     * @param data
+     * @param r
+     * @return {indexes of the bootstrap sample, indexes of the instances not
+     * drawn}
+     */
+    public static int[][] bootstrapSampleIndexes(Instances data, Random r) {
+        ArrayList<Integer> al_trainSet = new ArrayList<>(data.size()); // Empty list (add one-by-one)
+        ArrayList<Integer> al_testSet = new ArrayList<>();
         if (data.classAttribute().isNominal()) {
-            al_testSet = new ArrayList<>();
-            for (ArrayList<Instance> group : groupByClass(data)) {
+            for (ArrayList<Integer> group : groupIndexesByClass(data)) {
                 boolean[] drawn = new boolean[group.size()];
                 for (int j = 0; j < group.size(); j++) {
                     int k = r.nextInt(group.size());
@@ -401,21 +445,23 @@ public class Weka_module {
             Collections.shuffle(al_trainSet, r);
             Collections.shuffle(al_testSet, r);
         } else {
-            al_testSet = new ArrayList<>(data); // Full (remove one-by-one)
+            boolean[] drawn = new boolean[data.size()];
             for (int j = 0; j < data.size(); j++) {
                 // Random select instance
-                Instance instance = data.get(r.nextInt(data.size()));
-                // Add to TRAIN, remove from TEST
-                al_trainSet.add(instance);
-                al_testSet.remove(instance);
+                int k = r.nextInt(data.size());
+                al_trainSet.add(k);
+                drawn[k] = true;
+            }
+            for (int k = 0; k < data.size(); k++) {
+                if (!drawn[k]) {
+                    al_testSet.add(k);
+                }
             }
         }
-        //prepare train and test sets
-        Instances trainSet = new Instances(data, al_trainSet.size());
-        trainSet.addAll(al_trainSet);
-        Instances testSet = new Instances(data, al_testSet.size());
-        testSet.addAll(al_testSet);
-        return new Instances[]{trainSet, testSet};
+        int[][] sample = new int[2][];
+        sample[0] = al_trainSet.stream().mapToInt(Integer::intValue).toArray();
+        sample[1] = al_testSet.stream().mapToInt(Integer::intValue).toArray();
+        return sample;
     }
 
     /**
@@ -923,33 +969,49 @@ public class Weka_module {
             // No-information error rate, from the model fitted on the whole data
             double gamma = noInformationErrorRate(eval.confusionMatrix());
 
-            // Leave-one-out bootstrap error: error of the models on the
-            // instances left out of their bootstrap sample
-            double sum = 0;
-            int validRepetitions = 0;
+            // Leave-one-out bootstrap error (Efron and Tibshirani, 1997, eq. 23):
+            // for each instance, error rate of the models whose bootstrap
+            // sample does not contain it, then the average over the instances
+            // (each instance has the same weight, whatever the number of
+            // bootstrap samples it was left out of)
+            double[] errors = new double[data.numInstances()];
+            int[] timesLeftOut = new int[data.numInstances()];
             for (int i = 0; i < Main.bootstrapAndRepeatedHoldoutFolds; i++) {
                 Random r = new Random(repetitionSeed(i));
 
                 // Custom sampling (100%, with replacement)
-                Instances[] sample = bootstrapSample(data, r);
-                Instances trainSet = sample[0];
-                Instances testSet = sample[1];
+                int[][] sample = bootstrapSampleIndexes(data, r);
                 // no instance left out: nothing to evaluate
-                if (testSet.isEmpty()) {
+                if (sample[1].length == 0) {
                     continue;
                 }
                 //train the train set
+                Instances trainSet = new Instances(data, sample[0].length);
+                for (int k : sample[0]) {
+                    trainSet.add(data.instance(k));
+                }
                 model.buildClassifier(trainSet);
 
-                // Test the test set
-                Evaluation evaluation = new Evaluation(data);
-                evaluation.evaluateModel(model, testSet);
-
-                // total error rates
-                sum += evaluation.errorRate();
-                validRepetitions++;
+                // Test the instances left out, as Evaluation does: the
+                // predicted class is the most probable one, and an instance
+                // without prediction is not an error
+                for (int k : sample[1]) {
+                    Instance instance = data.instance(k);
+                    if (instance.classIsMissing()) {
+                        continue;
+                    }
+                    Instance classMissing = (Instance) instance.copy();
+                    classMissing.setDataset(data);
+                    classMissing.setClassMissing();
+                    double[] distribution = model.distributionForInstance(classMissing);
+                    int predicted = Utils.maxIndex(distribution);
+                    timesLeftOut[k]++;
+                    if (distribution[predicted] > 0 && predicted != (int) instance.classValue()) {
+                        errors[k]++;
+                    }
+                }
             }
-            double Err1 = sum / validRepetitions;
+            double Err1 = leaveOneOutBootstrapError(errors, timesLeftOut);
 
             return compute632plus(err, Err1, gamma);
 
@@ -990,6 +1052,28 @@ public class Weka_module {
             gamma += (actual[l] / total) * (1 - predicted[l] / total);
         }
         return gamma;
+    }
+
+    /**
+     * Leave-one-out bootstrap error Err1 of Efron and Tibshirani (1997, eq.
+     * 23): mean over the instances of their error rate in the bootstrap
+     * samples that do not contain them. Instances never left out are not
+     * counted.
+     *
+     * @param errors number of errors on each instance
+     * @param timesLeftOut number of bootstrap samples without each instance
+     * @return Err1, NaN if no instance was left out
+     */
+    public static double leaveOneOutBootstrapError(double[] errors, int[] timesLeftOut) {
+        double sum = 0;
+        int n = 0;
+        for (int k = 0; k < errors.length; k++) {
+            if (timesLeftOut[k] > 0) {
+                sum += errors[k] / timesLeftOut[k];
+                n++;
+            }
+        }
+        return n == 0 ? Double.NaN : sum / n;
     }
 
     /**
