@@ -314,6 +314,22 @@ public class AdaptDatasetToTraining {
     }
 
     /**
+     * @param column
+     * @return the column name without its file prefix (prefix__feature), if
+     * the prefix is one of those declared in trainFile or validationFile
+     */
+    private static String removeFilePrefix(String column) {
+        ArrayList<String> prefixes = new ArrayList<>(Main.hmTrainFiles.values());
+        prefixes.addAll(Main.hmValidationFiles.values());
+        for (String prefix : prefixes) {
+            if (prefix != null && !prefix.isEmpty() && column.startsWith(prefix + "__")) {
+                return column.substring(prefix.length() + 2);
+            }
+        }
+        return column;
+    }
+
+    /**
      *
      * @param outfile
      * @param replace
@@ -338,18 +354,48 @@ public class AdaptDatasetToTraining {
             br.close();
             pw.flush();
 
-            //read test. Its columns are matched to the train columns by name
+            //read test. Its columns are matched to the train columns by name:
+            //first the exact name, then the name without the file prefix
+            //(prefix__feature), since the train and validation files can be
+            //given different prefixes (or none)
             br = new BufferedReader(new FileReader(testFile));
             String testHeader[] = br.readLine().split("\t");
             HashMap<String, Integer> hmTestColumns = new HashMap<>();
+            HashMap<String, Integer> hmTestColumnsWithoutPrefix = new HashMap<>();
             for (int i = 0; i < testHeader.length; i++) {
                 hmTestColumns.put(testHeader[i], i);
+                String name = removeFilePrefix(testHeader[i]);
+                // -1: ambiguous, several columns have this name
+                hmTestColumnsWithoutPrefix.put(name, hmTestColumnsWithoutPrefix.containsKey(name) ? -1 : i);
             }
-            int missingColumns = 0;
+            HashMap<String, Integer> hmTrainColumnsWithoutPrefix = new HashMap<>();
             for (String column : trainHeader) {
-                if (!hmTestColumns.containsKey(column)) {
-                    missingColumns++;
+                String name = removeFilePrefix(column);
+                hmTrainColumnsWithoutPrefix.put(name, hmTrainColumnsWithoutPrefix.containsKey(name) ? 2 : 1);
+            }
+            Integer[] testIndexes = new Integer[trainHeader.length];
+            int missingColumns = 0;
+            int foundFeatures = 0;
+            for (int i = 0; i < trainHeader.length; i++) {
+                Integer index = hmTestColumns.get(trainHeader[i]);
+                String name = removeFilePrefix(trainHeader[i]);
+                if (index == null && hmTrainColumnsWithoutPrefix.get(name) == 1) {
+                    index = hmTestColumnsWithoutPrefix.get(name);
+                    if (index != null && index < 0) {
+                        index = null;
+                    }
                 }
+                testIndexes[i] = index;
+                if (index == null) {
+                    missingColumns++;
+                } else if (i > 0 && i < trainHeader.length - 1) {
+                    foundFeatures++;
+                }
+            }
+            if (foundFeatures == 0 && trainHeader.length > 2) {
+                System.err.println("[error] None of the features of the training file(s) were found in the "
+                        + "validation file(s). Check the column names and the prefixes of trainFile and validationFile");
+                System.exit(1);
             }
             if (missingColumns > 0) {
                 System.out.println("[warning] " + missingColumns + " column(s) of the training file missing from the "
@@ -362,7 +408,7 @@ public class AdaptDatasetToTraining {
                 String values[] = line.split("\t");
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < trainHeader.length; i++) {
-                    Integer index = hmTestColumns.get(trainHeader[i]);
+                    Integer index = testIndexes[i];
                     if (i > 0) {
                         sb.append("\t");
                     }
