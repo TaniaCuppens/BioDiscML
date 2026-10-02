@@ -608,7 +608,6 @@ public class Training {
 
         try {
             Object o = null;
-            int numberOfAttributes = 0;
             double previousMeasureToMaximize = -1000.0;
             double previousMeasureToMinimize = 1000.0;
             ArrayList<Integer> alAttributes = new ArrayList<>();
@@ -715,7 +714,6 @@ public class Training {
                     }
 
                     //choose what we want to maximize or minimize (such as error rates)
-                    //this will crash if model had an error
                     double currentMeasure = getValueToMaximize(valueToMaximizeOrMinimize, cr, rr);
 
                     //Report results
@@ -729,53 +727,58 @@ public class Training {
                     }
 
                     if (modelIsImproved) {
+                        // do backward OR forward, check if we have an improvement if we remove previously chosen features
+                        // (all of them except the one we just added)
+                        if (doForwardBackward_OR_BackwardForward && ao.retainedAttributesOnly.size() > 1) {
+                            int j = 0;
+                            while (j < ao.retainedAttributesOnly.size() - 1) {
+                                ArrayList<Integer> attributesToTestInBackward = new ArrayList<>(ao.retainedAttributesOnly);
+                                attributesToTestInBackward.remove(j);
+                                String featuresToTest = ao.ID + "," + utils.arrayToString(attributesToTestInBackward, ",") + "," + ao.Class;
+                                //train
+                                Object ob = weka.trainClassifier(classifier, classifier_options,
+                                        featuresToTest, isClassification, 10);
+                                if (ob == null || ob instanceof String) {
+                                    // cannot evaluate the model without this feature: keep it
+                                    j++;
+                                    continue;
+                                }
+                                Weka_module.ClassificationResultsObject crBackward = null;
+                                Weka_module.RegressionResultsObject rrBackward = null;
+                                if (isClassification) {
+                                    crBackward = (Weka_module.ClassificationResultsObject) ob;
+                                } else {
+                                    rrBackward = (Weka_module.RegressionResultsObject) ob;
+                                }
+                                //get measure
+                                double measureWithRemovedFeature = getValueToMaximize(valueToMaximizeOrMinimize, crBackward, rrBackward);
+                                //check if we have improvement (or the same performance with one feature less)
+                                boolean removalIsBetter;
+                                if (minimize) {
+                                    removalIsBetter = measureWithRemovedFeature <= currentMeasure;
+                                } else {
+                                    removalIsBetter = measureWithRemovedFeature >= currentMeasure;
+                                }
+
+                                if (removalIsBetter) {
+                                    //definitively discard the feature. The next one is now at index j
+                                    ao.retainedAttributesOnly = attributesToTestInBackward;
+                                    cr = crBackward;
+                                    rr = rrBackward;
+                                    o = ob;
+                                    currentMeasure = measureWithRemovedFeature;
+                                } else {
+                                    //keep the feature, test the next one
+                                    j++;
+                                }
+                            }
+                        }
                         if (!minimize) {
                             previousMeasureToMaximize = currentMeasure;
                         } else {
                             previousMeasureToMinimize = currentMeasure;
                         }
 
-                        // do backward OR forward, check if we have an improvement if we remove previously chosen features
-                        if (doForwardBackward_OR_BackwardForward && numberOfAttributes > 1) {
-                            oldcr = cr;
-                            ArrayList<Integer> attributesToTestInBackward = ao.getRetainedAttributesIdClassInArrayList();
-                            for (int j = 1/*skip ID*/;
-                                    j < attributesToTestInBackward.size() - 2/*skip last attribute we added by forward and class*/; j++) {
-                                attributesToTestInBackward.remove(j);
-
-                                String featuresToTest = utils.arrayToString(attributesToTestInBackward, ",");
-                                //train
-                                if (isClassification) {
-                                    cr = (Weka_module.ClassificationResultsObject) weka.trainClassifier(classifier, classifier_options,
-                                            featuresToTest, isClassification, 10);
-                                } else {
-                                    rr = (Weka_module.RegressionResultsObject) weka.trainClassifier(classifier, classifier_options,
-                                            featuresToTest, isClassification, 10);
-                                }
-                                //get measure
-                                double measureWithRemovedFeature = getValueToMaximize(valueToMaximizeOrMinimize, cr, rr);
-                                //check if we have improvement
-                                if (minimize) {
-                                    modelIsImproved = (measureWithRemovedFeature <= currentMeasure)
-                                            || measureWithRemovedFeature < currentMeasure;
-                                } else {
-                                    modelIsImproved = (measureWithRemovedFeature >= currentMeasure)
-                                            || measureWithRemovedFeature > currentMeasure;
-                                }
-
-                                if (modelIsImproved) {
-                                    //if model is improved definitly discard feature is improvement
-                                    ao.changeRetainedAttributes(featuresToTest);
-                                    oldcr = cr;
-                                    currentMeasure = measureWithRemovedFeature;
-                                } else {
-                                    //restore the feature
-                                    attributesToTestInBackward = ao.getRetainedAttributesIdClassInArrayList();
-                                    cr = oldcr;
-                                }
-                            }
-                        }
-//
                         //modify results summary output
                         //only for DEBUG purposes
                         if (isClassification) {
@@ -1566,24 +1569,6 @@ public class Training {
             }
             attributes += Class;
             return attributes;
-        }
-
-        private ArrayList getRetainedAttributesIdClassInArrayList() {
-            ArrayList<Integer> al = new ArrayList<>();
-            al.add(ID);
-            for (Integer retainedAttribute : retainedAttributesOnly) {
-                al.add(retainedAttribute);
-            }
-            al.add(Class);
-            return al;
-        }
-
-        private void changeRetainedAttributes(String featuresToTest) {
-            String features[] = featuresToTest.split(",");
-            retainedAttributesOnly = new ArrayList<>();
-            for (int i = 1; i < features.length - 1; i++) {//skip ID and class indexes
-                retainedAttributesOnly.add(Integer.valueOf(features[i]));
-            }
         }
 
         private String getAttributesIdClassInString() {
