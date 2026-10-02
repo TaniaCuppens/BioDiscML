@@ -1255,7 +1255,7 @@ public class Training {
 
                     //output
                     String bt632 = df.format(bootstrapTrain632plus);
-                    if (bt632.equals(1000)) {
+                    if (bootstrapTrain632plus == 1000) {
                         bt632 = "";
                     }
                     String btt632 = df.format(bootstrapTrainTest632plus);
