@@ -472,7 +472,15 @@ public class Training {
                 String[] outputs = new String[alClassifiers.size()];
                 IntStream.range(0, alClassifiers.size()).parallel().forEach((i) -> {
                     String[] classif = alClassifiers.get(i);
-                    String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    String s;
+                    if (isNotThreadSafe(classif[0], classif[1])) {
+                        // trained one at a time (other models still run in parallel)
+                        synchronized (NOT_THREAD_SAFE_LOCK) {
+                            s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                        }
+                    } else {
+                        s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    }
                     if (s == null) {
                         s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
                     }
@@ -524,6 +532,23 @@ public class Training {
                     + ", including " + cptFailed + " incompatible models");
             pw.close();
         }
+    }
+
+    private static final Object NOT_THREAD_SAFE_LOCK = new Object();
+
+    /**
+     * Weka classifiers that share static state between instances: two of them
+     * trained at the same time fail (CHIRP: NullPointerException in
+     * weka.classifiers.misc.chirp), so that the models kept depended on the
+     * thread timing.
+     *
+     * @param classifier
+     * @param options
+     * @return true if the classifier must not be trained in parallel with
+     * another model using it
+     */
+    static boolean isNotThreadSafe(String classifier, String options) {
+        return (classifier + " " + options).contains("CHIRP");
     }
 
     /**
