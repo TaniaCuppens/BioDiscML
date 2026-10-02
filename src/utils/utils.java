@@ -295,6 +295,23 @@ public class utils {
             return hmData.containsKey(theClass);
         }
 
+        /**
+         * @param id
+         * @return row index of the ID, matched case-insensitively if it is
+         * not found as is
+         */
+        public Integer getIdIndex(String id) {
+            Integer index = hmIDsList.get(id);
+            if (index == null) {
+                for (String s : hmIDsList.keySet()) {
+                    if (s.equalsIgnoreCase(id)) {
+                        return hmIDsList.get(s);
+                    }
+                }
+            }
+            return index;
+        }
+
         public int getIdIndex(ArrayList<String[]> altable) {
             int cpt = 0;
             for (String s : altable.get(0)) {

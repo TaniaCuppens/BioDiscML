@@ -264,7 +264,8 @@ public class AdaptDatasetToTraining {
                     // if (hm_ids.containsKey(id) && !id.equals(Main.mergingID)) {
                     pw.print(id);
                     for (TableObject tbo : al_tables) {
-                        int idIndex = tbo.hmIDsList.get(id);
+                        // IDs are matched between files case-insensitively (see getCommonIds)
+                        int idIndex = tbo.getIdIndex(id);
                         for (String s : tbo.getSortedHmDataKeyset()) {
                             if (!Main.hmExcludedFeatures.containsKey(s)) { //if it is not a rejected feature
                                 // print values and replace , by .
@@ -277,7 +278,7 @@ public class AdaptDatasetToTraining {
                             }
                         }
                     }
-                    String classe = myClass.get(al_tables.get(classIndex).hmIDsList.get(id));
+                    String classe = myClass.get(al_tables.get(classIndex).getIdIndex(id));
                     if (classe.contains(" ")) {
                         existing_spaces++;
                     }
