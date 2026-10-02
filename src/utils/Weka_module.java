@@ -1329,6 +1329,15 @@ public class Weka_module {
             //csvToArff(true);
             ConverterUtils.DataSource source = new ConverterUtils.DataSource(csvFile);
             Instances data = source.getDataSet();
+            // class labels such as 0/1 are read from the csv file as numbers:
+            // the class must be nominal for the information gain
+            if (data.attribute(data.numAttributes() - 1).isNumeric()) {
+                weka.filters.unsupervised.attribute.NumericToNominal n
+                        = new weka.filters.unsupervised.attribute.NumericToNominal();
+                n.setOptions(new String[]{"-R", "last"});
+                n.setInputFormat(data);
+                data = Filter.useFilter(data, n);
+            }
             AttributeSelection attrsel = new AttributeSelection();
             weka.attributeSelection.InfoGainAttributeEval eval = new weka.attributeSelection.InfoGainAttributeEval();
 
@@ -2501,11 +2510,15 @@ public class Weka_module {
             String[] s = featuresRankingResults.split("\n");
             StringBuilder toreturn = new StringBuilder();
             int index = 0;
-            while (!s[index].equals("Ranked attributes:")) {
+            while (index < s.length && !s[index].equals("Ranked attributes:")) {
                 index++;
             }
+            if (index >= s.length) {
+                // the ranking could not be computed
+                return "";
+            }
             index++;
-            while (!s[index].startsWith("Selected")) {
+            while (index < s.length && !s[index].startsWith("Selected")) {
                 if (!s[index].contains(Main.mergingID) && !s[index].isEmpty()) {
                     String out = s[index].substring(1); //remove first space
                     out = out.replaceAll(" +", "\t");
@@ -2860,11 +2873,15 @@ public class Weka_module {
             String[] s = featuresRankingResults.split("\n");
             StringBuilder toreturn = new StringBuilder();
             int index = 0;
-            while (!s[index].equals("Ranked attributes:")) {
+            while (index < s.length && !s[index].equals("Ranked attributes:")) {
                 index++;
             }
+            if (index >= s.length) {
+                // the ranking could not be computed
+                return "";
+            }
             index++;
-            while (!s[index].startsWith("Selected")) {
+            while (index < s.length && !s[index].startsWith("Selected")) {
                 if (!s[index].contains(Main.mergingID) && !s[index].isEmpty()) {
                     //String out = s[index].substring(1); //remove first space
                     String out = s[index].trim(); //remove first space
