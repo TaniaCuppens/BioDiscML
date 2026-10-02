@@ -608,7 +608,8 @@ public class Main {
                 numberOfBestModels = Integer.valueOf(value.trim());
                 break;
             case "numberOfBestModelsSortingMetric":
-                bestModelsSortingMetric = value.trim().toUpperCase();
+                // case is resolved against the results file header
+                bestModelsSortingMetric = value.trim();
                 break;
             case "numberOfBestModelsSortingMetricThreshold":
                 bestModelsSortingMetricThreshold = Double.valueOf(value.trim());

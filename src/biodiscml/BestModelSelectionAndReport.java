@@ -68,23 +68,6 @@ public class BestModelSelectionAndReport {
         if (Main.combineModels) {
             bestOrCombine = "Combine ";
         }
-        String sign = " >= ";
-        boolean metricToMinimize = (Main.bestModelsSortingMetric.contains("RMSE")
-                || Main.bestModelsSortingMetric.contains("BER")
-                || Main.bestModelsSortingMetric.contains("FPR")
-                || Main.bestModelsSortingMetric.contains("FNR")
-                || Main.bestModelsSortingMetric.contains("FDR")
-                || Main.bestModelsSortingMetric.contains("MAE")
-                || Main.bestModelsSortingMetric.contains("RAE")
-                || Main.bestModelsSortingMetric.contains("RRSE"));
-        if (metricToMinimize) {
-            sign = " <= ";
-        }
-
-        System.out.println("## " + bestOrCombine + " models using " + Main.bestModelsSortingMetric + " as sorting metric.\n"
-                + "## Parameters: " + Main.numberOfBestModels + " best models and "
-                + Main.bestModelsSortingMetric + sign + Main.bestModelsSortingMetricThreshold);
-
         //Read results file
         boolean classification = type.equals("classification");
 
@@ -102,6 +85,10 @@ public class BestModelSelectionAndReport {
                 hmResultsHeaderNames.put(s, cpt);
                 hmResultsHeaderIndexes.put(cpt, s);
                 cpt++;
+                // the metric name is not case-sensitive (e.g. TRAIN_10CV_Fscore)
+                if (s.equalsIgnoreCase(Main.bestModelsSortingMetric)) {
+                    Main.bestModelsSortingMetric = s;
+                }
             }
             if (!hmResultsHeaderNames.containsKey(Main.bestModelsSortingMetric)) {
                 System.err.println("[error] " + Main.bestModelsSortingMetric + " column does not exist in the results file.");
@@ -113,6 +100,25 @@ public class BestModelSelectionAndReport {
                 }
 
             }
+
+            String sign = " >= ";
+            String metric = Main.bestModelsSortingMetric.toUpperCase();
+            //in case of error rates (RMSE, BER...), we want the minimum value instead of the maximal one
+            boolean metricToMinimize = (metric.contains("RMSE")
+                    || metric.contains("BER")
+                    || metric.contains("FPR")
+                    || metric.contains("FNR")
+                    || metric.contains("FDR")
+                    || metric.contains("MAE")
+                    || metric.contains("RAE")
+                    || metric.contains("RRSE"));
+            if (metricToMinimize) {
+                sign = " <= ";
+            }
+
+            System.out.println("## " + bestOrCombine + " models using " + Main.bestModelsSortingMetric + " as sorting metric.\n"
+                + "## Parameters: " + Main.numberOfBestModels + " best models and "
+                    + Main.bestModelsSortingMetric + sign + Main.bestModelsSortingMetricThreshold);
 
             //read results
             while (br.ready()) {
