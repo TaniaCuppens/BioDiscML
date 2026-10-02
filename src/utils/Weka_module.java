@@ -947,7 +947,9 @@ public class Weka_module {
             if (Main.debug) {
                 e.printStackTrace();
             }
-            return -1.0;
+            // undefined (not -1: the .632+ columns are error rates, sorted
+            // in ascending order by -bestmodel, where NaN values come last)
+            return Double.NaN;
         }
     }
 
