@@ -171,9 +171,9 @@ public class BestModelSelectionAndReport {
                     cpt++;
                     boolean condition = false;
                     if (metricToMinimize) {
-                        condition = rankedModel.metric < Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric <= Main.bestModelsSortingMetricThreshold;
                     } else {
-                        condition = rankedModel.metric > Main.bestModelsSortingMetricThreshold;
+                        condition = rankedModel.metric >= Main.bestModelsSortingMetricThreshold;
                     }
                     if (condition && cpt <= Main.numberOfBestModels) {
                         alBestClassifiers.add(rankedModel.model);
