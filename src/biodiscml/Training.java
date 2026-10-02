@@ -860,6 +860,9 @@ public class Training {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka.trainClassifierHoldOutValidation(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrain.alAUCs.add(Double.valueOf(cro.AUC));
                             eproRHTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproRHTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -875,6 +878,9 @@ public class Training {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka.trainClassifierHoldOutValidation(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrain.alCCs.add(Double.valueOf(rro.CC));
                             eproRHTrain.alMAEs.add(Double.valueOf(rro.MAE));
                             eproRHTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -900,6 +906,9 @@ public class Training {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka.trainClassifierBootstrap(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrain.alAUCs.add(Double.valueOf(cro.AUC));
                             eproBSTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproBSTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -915,6 +924,9 @@ public class Training {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka.trainClassifierBootstrap(classifier, classifier_options,
                                             ao.getRetainedAttributesIdClassInString(), isClassification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
 
                             eproBSTrain.alCCs.add(Double.valueOf(rro.CC));
                             eproBSTrain.alMAEs.add(Double.valueOf(rro.MAE));
@@ -1000,6 +1012,9 @@ public class Training {
                                         = (Weka_module.ClassificationResultsObject) weka2.trainClassifierHoldOutValidation(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (cro == null) {
+                                    continue; // failed repetition
+                                }
 
                                 eproRHTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                                 eproRHTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
@@ -1018,6 +1033,9 @@ public class Training {
                                         = (Weka_module.RegressionResultsObject) weka2.trainClassifierHoldOutValidation(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (rro == null) {
+                                    continue; // failed repetition
+                                }
                                 eproRHTrainTest.alCCs.add(Double.valueOf(rro.CC));
                                 eproRHTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                                 eproRHTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -1053,6 +1071,9 @@ public class Training {
                                         = (Weka_module.ClassificationResultsObject) weka2.trainClassifierBootstrap(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (cro == null) {
+                                    continue; // failed repetition
+                                }
 
                                 eproBSTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                                 eproBSTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
@@ -1071,6 +1092,9 @@ public class Training {
                                         = (Weka_module.RegressionResultsObject) weka2.trainClassifierBootstrap(
                                                 classifier, classifier_options,
                                                 null, isClassification, i);
+                                if (rro == null) {
+                                    continue; // failed repetition
+                                }
                                 eproBSTrainTest.alCCs.add(Double.valueOf(rro.CC));
                                 eproBSTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                                 eproBSTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
