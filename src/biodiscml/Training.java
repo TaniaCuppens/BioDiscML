@@ -454,6 +454,9 @@ public class Training {
                 IntStream.range(0, alClassifiers.size()).parallel().forEach((i) -> {
                     String[] classif = alClassifiers.get(i);
                     String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    if (s == null) {
+                        s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
+                    }
                     if (!s.toLowerCase().contains("error") || Main.printFailedModels) {
                         outputs[i] = s;
                         synchronized (pw) {
@@ -467,6 +470,9 @@ public class Training {
             } else {
                 alClassifiers.stream().map((classif) -> {
                     String s = StepWiseFeatureSelectionTraining(classif[0], classif[1], classif[2], classif[3]);
+                    if (s == null) {
+                        s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
+                    }
                     if (!s.toLowerCase().contains("error")) {
                         pw.println(s);
                     } else if (Main.printFailedModels) {
@@ -694,7 +700,9 @@ public class Training {
                         o = weka.trainClassifier(classifier, classifier_options,
                                 ao.getRetainedAttributesIdClassInString(), isClassification, 10);
 
-                        if (o instanceof String || o == null) {
+                        if (o == null) {
+                            return "ERROR\t" + classifier + " " + classifier_options + " | " + searchMethod + " | training failed";
+                        } else if (o instanceof String) {
                             return (String) o;
                         } else if (isClassification) {
                             cr = (Weka_module.ClassificationResultsObject) o;
@@ -781,6 +789,10 @@ public class Training {
                             cr = oldcr;
                         }
                     }
+                }
+                // no feature could be retained (e.g. undefined measure)
+                if ((isClassification && cr == null) || (!isClassification && rr == null)) {
+                    o = null;
                 }
             }
 
@@ -1386,7 +1398,7 @@ public class Training {
                 if (Main.debug) {
                     System.err.println(o);
                 }
-                if (o.toString().equals("null")) {
+                if (o == null) {
                     out += "\t " + classifier + " " + classifier_options + " | " + searchMethod + " | Error probably because of number of features inferior to topX";
                 }
             }
