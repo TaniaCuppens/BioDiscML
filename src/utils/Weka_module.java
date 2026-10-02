@@ -361,6 +361,10 @@ public class Weka_module {
                 }
             }
         }
+        // the sets are built class by class: shuffle them, since some
+        // classifiers depend on the order of the training instances
+        train.randomize(r);
+        test.randomize(r);
         return new Instances[]{train, test};
     }
 
@@ -392,6 +396,10 @@ public class Weka_module {
                     }
                 }
             }
+            // the sample is drawn class by class: shuffle it, since some
+            // classifiers depend on the order of the training instances
+            Collections.shuffle(al_trainSet, r);
+            Collections.shuffle(al_testSet, r);
         } else {
             al_testSet = new ArrayList<>(data); // Full (remove one-by-one)
             for (int j = 0; j < data.size(); j++) {
