@@ -80,6 +80,8 @@ from the first file (in the order of the config file) that contains it.
 on/off, empty values are ignored (default kept), and unknown options are 
 reported. The last line of classifiers.conf is read even without a final 
 newline. cpus values below 1 mean 1. -help works with any Java version.
+- Training. Models whose options contain the word error (e.g. the SquaredError 
+loss of MLPClassifier) are no longer discarded as failed models.
 
 ## Requirements
 JAVA 8 (https://www.java.com/en/download/)

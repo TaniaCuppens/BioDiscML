@@ -484,7 +484,7 @@ public class Training {
                     if (s == null) {
                         s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
                     }
-                    if (!s.toLowerCase().contains("error") || Main.printFailedModels) {
+                    if (!isFailedModel(s) || Main.printFailedModels) {
                         outputs[i] = s;
                         synchronized (pw) {
                             pw.println(s);
@@ -500,7 +500,7 @@ public class Training {
                     if (s == null) {
                         s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
                     }
-                    if (!s.toLowerCase().contains("error")) {
+                    if (!isFailedModel(s)) {
                         pw.println(s);
                     } else if (Main.printFailedModels) {
                         pw.println(s);
@@ -532,6 +532,16 @@ public class Training {
                     + ", including " + cptFailed + " incompatible models");
             pw.close();
         }
+    }
+
+    /**
+     * @param output output line of StepWiseFeatureSelectionTraining
+     * @return true if the model failed. Failed models start with ERROR (the
+     * output of a model that worked starts with its ID, and may contain
+     * "error" in its options, e.g. weka.classifiers.functions.loss.SquaredError)
+     */
+    static boolean isFailedModel(String output) {
+        return output.startsWith("ERROR");
     }
 
     private static final Object NOT_THREAD_SAFE_LOCK = new Object();
@@ -745,7 +755,7 @@ public class Training {
                     if (o == null) {
                         return "ERROR\t" + classifier + " " + classifier_options + " | " + searchMethod + " | training failed";
                     } else if (o instanceof String) {
-                        return (String) o;
+                        return "ERROR\t" + o;
                     } else if (isClassification) {
                         cr = (Weka_module.ClassificationResultsObject) o;
                     } else {
