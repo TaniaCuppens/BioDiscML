@@ -160,11 +160,11 @@ public class Main {
                 } else {
                     br = new BufferedReader(new FileReader(classifiers));
                 }
-                line = "";
-                while (br.ready()) {
-                    if (!line.startsWith("#") && !line.trim().isEmpty()) {
-                        String option = line.split("=")[0].trim();
-                        String value = line.split("=")[1].trim();
+                // (the last line used to be skipped by a br.ready() loop)
+                while ((line = br.readLine()) != null) {
+                    if (!line.trim().startsWith("#") && line.contains("=")) {
+                        String option = line.substring(0, line.indexOf("=")).trim();
+                        String value = line.substring(line.indexOf("=") + 1).trim();
                         switch (option) {
                             case "ccmd":
                                 classificationBruteForceCommands.add(value.trim());
@@ -174,7 +174,6 @@ public class Main {
                                 break;
                         }
                     }
-                    line = br.readLine();
                 }
             } catch (Exception e) {
                 e.printStackTrace();
