@@ -175,10 +175,10 @@ public class BestModelSelectionAndReport {
                 }
             } else {
                 for (String modelID : Main.hmTrainingBestModelList.keySet()) {
-                    if (classification) {
-                        alBestClassifiers.add(((classificationObject) hmModels.get(modelID)));
+                    if (hmModels.containsKey(modelID)) {
+                        alBestClassifiers.add(hmModels.get(modelID));
                     } else {
-                        alBestClassifiers.add(((regressionObject) hmModels.get(modelID)));
+                        System.err.println("[error] Model " + modelID + " not found in " + predictionsResultsFile);
                     }
                 }
             }

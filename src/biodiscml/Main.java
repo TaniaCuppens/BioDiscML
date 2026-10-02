@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.nio.file.StandardCopyOption;
 
 /**
@@ -37,7 +38,7 @@ public class Main {
     public static boolean training = false;
     public static boolean predictNewData = false;
     public static boolean trainingBestModel = false;
-    public static HashMap<String, String> hmTrainingBestModelList = new HashMap<>();//modelID, identifier prefix
+    public static LinkedHashMap<String, String> hmTrainingBestModelList = new LinkedHashMap<>();//modelID, identifier prefix
 
     public static String modelFile = "";
     public static HashMap<String, String> hmExcludedFeatures = new HashMap<>();//features to exclude from the final dataset
