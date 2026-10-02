@@ -44,6 +44,10 @@ public class utils {
                     al.add("");
                 }
             }
+            if (hmData.containsKey(header)) {
+                System.out.println("[warning] Duplicated column name " + header
+                        + ": only its last occurrence is kept. Column names must be unique");
+            }
             hmData.put(header, al);
         }
         return hmData;
