@@ -399,6 +399,27 @@ public class Weka_module {
     }
 
     /**
+     * Small sample of the instances for the short test: about 5% of each
+     * class, but at least 5 instances of each class (or all of them if the
+     * class has fewer). For a numeric class, about 5% of the instances but at
+     * least 10.
+     *
+     * @param data randomized data, with class index set
+     * @return sample
+     */
+    public static Instances shortTestSample(Instances data) {
+        Instances sample = new Instances(data, data.numInstances());
+        int minimum = data.classAttribute().isNominal() ? 5 : 10;
+        for (ArrayList<Instance> group : groupByClass(data)) {
+            int n = Math.max((int) Math.ceil(group.size() * 0.05), Math.min(group.size(), minimum));
+            for (int i = 0; i < n; i++) {
+                sample.add(group.get(i));
+            }
+        }
+        return sample;
+    }
+
+    /**
      * short test on 10% of instances
      *
      * @param attributesToUse
@@ -412,14 +433,14 @@ public class Weka_module {
         try {
             // load data. Work on a copy: myData is shared by the training threads
             Instances data = new Instances(myData);
+            if (data.classIndex() == -1) {
+                data.setClassIndex(data.numAttributes() - 1);
+            }
             //get a sample of instances
             //// randomize data
             data.randomize(new Random(Main.seed));
-
-            //// Percent split
-            int trainSize = (int) Math.round(data.numInstances() * 95 / 100);
-            int testSize = data.numInstances() - trainSize;
-            data = new Instances(data, trainSize, testSize);
+            //// about 5% of the instances, with all the classes
+            data = shortTestSample(data);
 
             //set last attribute as index
             if (data.classIndex() == -1) {
