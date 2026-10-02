@@ -828,6 +828,12 @@ public class Training {
                         if (Main.debug) {
                             System.err.println("[error] LOOCV failed");
                         }
+                        // empty columns, to keep the following columns aligned
+                        if (isClassification) {
+                            loocvOut = "\t" + "\t" + "\t" + "\t" + "\t" + "\t" + "\t";
+                        } else {
+                            loocvOut = "\t" + "\t" + "\t" + "\t";
+                        }
                     } else if (isClassification) {
                         crLoocv = (Weka_module.ClassificationResultsObject) oLoocv;
                         loocvOut = crLoocv.toStringShort();
