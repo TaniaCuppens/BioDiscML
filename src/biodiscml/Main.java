@@ -545,6 +545,44 @@ public class Main {
     }
 
     /**
+     * Parse a fast way command: "classifier options[, optimizer[, search mode]]".
+     * The optimizer and the search mode are recognized from the end, so that
+     * the classifier options can contain commas.
+     *
+     * @param value
+     * @return classifier options:optimizer:searchmode (allopt and allsearch if
+     * not provided)
+     */
+    static String parseFastWayCommand(String value) {
+        String parts[] = value.split(",", -1);
+        int n = parts.length;
+        String optimizer = "allopt";
+        String searchmode = "allsearch";
+        int end = n; // parts[0..end-1] are the classifier and its options
+        if (n >= 3 && isSearchMode(parts[n - 1]) && isOptimizer(parts[n - 2])) {
+            optimizer = parts[n - 2].trim().toLowerCase();
+            searchmode = parts[n - 1].trim().toLowerCase();
+            end = n - 2;
+        } else if (n >= 2 && isOptimizer(parts[n - 1])) {
+            optimizer = parts[n - 1].trim().toLowerCase();
+            end = n - 1;
+        }
+        String command = String.join(",", java.util.Arrays.copyOfRange(parts, 0, end)).trim();
+        return command + ":" + optimizer + ":" + searchmode;
+    }
+
+    private static boolean isOptimizer(String s) {
+        s = s.trim().toLowerCase();
+        return s.equals("allopt") || Training.KNOWN_OPTIMIZERS.contains(s);
+    }
+
+    private static boolean isSearchMode(String s) {
+        s = s.trim().toLowerCase();
+        return s.equals("allsearch") || s.equals("f") || s.equals("fb") || s.equals("b")
+                || s.equals("bf") || s.equals("all") || s.matches("top[0-9]+");
+    }
+
+    /**
      * @param option
      * @param value
      * @return the boolean value: true/yes/1/on or false/no/0/off (any case)
@@ -656,42 +694,10 @@ public class Main {
                 bestModelsSortingMetricThreshold = Double.valueOf(value.trim());
                 break;
             case "ccmd":
-                switch (value.split(",").length) {
-                    case 1:
-                        classificationFastWayCommands.add(value.trim()
-                                + ":allopt:allsearch");
-                        break;
-                    case 2:
-                        classificationFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase() + ":allsearch");
-                        break;
-                    case 3:
-                        classificationFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase()
-                                + ":" + value.split(",")[2].trim().toLowerCase());
-                        break;
-                    default:
-                        break;
-                }
+                classificationFastWayCommands.add(parseFastWayCommand(value));
                 break;
             case "rcmd":
-                switch (value.split(",").length) {
-                    case 1:
-                        regressionFastWayCommands.add(value.trim()
-                                + ":allopt:allsearch");
-                        break;
-                    case 2:
-                        regressionFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase() + ":allsearch");
-                        break;
-                    case 3:
-                        regressionFastWayCommands.add(value.split(",")[0].trim()
-                                + ":" + value.split(",")[1].trim().toLowerCase()
-                                + ":" + value.split(",")[2].trim().toLowerCase());
-                        break;
-                    default:
-                        break;
-                }
+                regressionFastWayCommands.add(parseFastWayCommand(value));
                 break;
             case "coptimizers":
                 classificationOptimizers = value.trim().toLowerCase();
