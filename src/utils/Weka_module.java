@@ -758,8 +758,10 @@ public class Weka_module {
                 r.setInputFormat(data);
                 data = Filter.useFilter(data, r);
                 data.setClassIndex(data.numAttributes() - 1);
-
-                //create weka configuration string
+            }
+            if (!classifier.contains("meta.Vote")) {
+                //create weka configuration string, removing the ID (first
+                //attribute) also when the dataset is used as is (attributesToUse == null)
                 String filterID = "weka.classifiers.meta.FilteredClassifier "
                         + "-F \"weka.filters.unsupervised.attribute.Remove -R 1\" "
                         + "-W weka.classifiers.";
