@@ -96,7 +96,7 @@ public class BestModelSelectionAndReport {
                     System.out.println("Use AVG_CC instead since we are in regression mode");
                     Main.bestModelsSortingMetric = "AVG_CC";
                 } else {
-                    System.exit(0);
+                    System.exit(1);
                 }
 
             }
@@ -192,8 +192,16 @@ public class BestModelSelectionAndReport {
                         alBestClassifiers.add(hmModels.get(modelID));
                     } else {
                         System.err.println("[error] Model " + modelID + " not found in " + predictionsResultsFile);
+                        Main.exitCode = 1;
                     }
                 }
+            }
+
+            if (alBestClassifiers.isEmpty()) {
+                System.err.println("[error] No model selected"
+                        + (Main.hmTrainingBestModelList.isEmpty() ? ": no model of the results file has "
+                        + Main.bestModelsSortingMetric + (metricToMinimize ? " <= " : " >= ") + Main.bestModelsSortingMetricThreshold : ""));
+                Main.exitCode = 1;
             }
 
             //if model combination vote
@@ -238,14 +246,18 @@ public class BestModelSelectionAndReport {
                     System.err.println("[error] Unable to create the best model "
                             + (classification ? ((classificationObject) classifier).identifier : ((regressionObject) classifier).identifier)
                             + ". Going to the next one.");
+                    Main.exitCode = 1;
                 }
             }
 
         } catch (ClassCastException e) {
             e.printStackTrace();
-            System.err.println("Unable to train selected best model(s). Check input files. ");
+            System.err.println("[error] Unable to train selected best model(s). Check input files. ");
+            Main.exitCode = 1;
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[error] Best model selection stopped: " + e);
+            Main.exitCode = 1;
         }
     }
 

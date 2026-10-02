@@ -175,7 +175,7 @@ public class AdaptDatasetToTraining {
             if (Main.debug) {
                 e.printStackTrace();
             }
-            System.exit(0);
+            System.exit(1);
         }
         //remove useless features having 100% the same value
         if (trainingFile) {
@@ -310,6 +310,8 @@ public class AdaptDatasetToTraining {
 
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[error] Unable to prepare the training file " + outfile);
+            System.exit(1);
         }
     }
 
@@ -424,6 +426,8 @@ public class AdaptDatasetToTraining {
             pw.close();
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[error] Unable to merge the training and validation files");
+            System.exit(1);
         }
         return "1-" + cpt;
     }

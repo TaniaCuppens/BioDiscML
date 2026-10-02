@@ -280,7 +280,7 @@ public class utils {
                 if (j != null) {
                     System.err.println("DUPLICATED ID DETECTED: " + altable.get(i)[ID_index]);
                     System.err.println("All IDs must be unique");
-                    System.exit(0);
+                    System.exit(1);
                 }
             }
         }

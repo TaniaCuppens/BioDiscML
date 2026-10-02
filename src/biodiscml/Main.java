@@ -117,6 +117,9 @@ public class Main {
     // positive class of a binary classification (sensitivity, specificity,
     // PPV, FDR, F-score, AUPRC). Empty: see Weka_module.getPositiveClassIndex
     public static String positiveClass = "";
+    // exit code of the run: set to 1 by the errors that do not stop the run
+    // at once, so that schedulers and pipelines see the failure
+    public static int exitCode = 0;
 
     public static void main(String[] args) throws IOException {
         System.out.println("#### BioDiscML ####\n");
@@ -143,7 +146,7 @@ public class Main {
             } else {
                 System.out.println("/mnt/software/jvm/jdk1.8.0_371/bin/java -jar biodiscml.jar " + arg);
             }
-            System.exit(0);
+            System.exit(1);
         }
         //read configuration file
         System.out.println("#### Parsing options...");
@@ -185,6 +188,8 @@ public class Main {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                System.err.println("[error] Unable to read classifiers.conf");
+                System.exit(1);
             }
         } else {
             System.out.println("Model search mode: Fast way mode");
@@ -257,6 +262,8 @@ public class Main {
                 f.createNewFile();
             } catch (Exception e) {
                 e.printStackTrace();
+                System.err.println("[error] Unable to restore the previous run");
+                System.exit(1);
             }
 
         }
@@ -321,7 +328,7 @@ public class Main {
             if (!doClassification && !doRegression) {
                 System.err.println("[error] No prediction type has been set (classification or regression)."
                         + " Set doClassification or doRegression at true");
-                System.exit(0);
+                System.exit(1);
             }
         }
 
@@ -335,11 +342,11 @@ public class Main {
             }
             if (modelFile.isEmpty()) {
                 System.err.println("[error] No model file have been provided (Set a modelFile in config file)");
-                System.exit(0);
+                System.exit(1);
             }
             if (hmNewDataFiles.isEmpty()) {
                 System.err.println("[error] No new data file have been provided (Set a newDataFile in config file)");
-                System.exit(0);
+                System.exit(1);
             }
 
             //put data together in the same file for ML
@@ -382,6 +389,10 @@ public class Main {
          */
         //System.out.println("##Finished with success !");
         //System.exit(0);
+        if (exitCode != 0) {
+            System.err.println("[error] BioDiscML finished with errors (see above)");
+            System.exit(exitCode);
+        }
     }
 
     public static void Main() {
@@ -486,6 +497,7 @@ public class Main {
         } else {
             System.err.println("[error] No mode selected (train, bestmodel or predict). "
                     + "Add -train or -bestmodel or -predict to your command line");
+            System.exit(1);
         }
 
         //export config file when executing command line options
@@ -518,7 +530,7 @@ public class Main {
                 configFile = "empty";
             }
             System.err.println("[error] Configuration file not found (provided source: " + configFile + "). Set config file with -config option");
-            System.exit(0);
+            System.exit(1);
         }
         System.out.println("#### Reading configuration file " + configFile);
         String line = null;
@@ -545,9 +557,9 @@ public class Main {
             br.close();
 
         } catch (Exception e) {
-            System.err.println("Parsing error in config file at line " + line);
+            System.err.println("[error] Parsing error in config file at line " + line);
             e.printStackTrace();
-            System.exit(0);
+            System.exit(1);
         }
 
     }

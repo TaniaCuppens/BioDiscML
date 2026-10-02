@@ -1313,8 +1313,8 @@ public class Weka_module {
             return attrsel;
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Check your input files. Probably missing classes");
-            System.exit(0);
+            System.err.println("[error] Check your input files. Probably missing classes");
+            System.exit(1);
             return null;
         }
     }

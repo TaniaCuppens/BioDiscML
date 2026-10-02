@@ -68,6 +68,8 @@ public class TestingAndEvaluate {
             pw.close();
         } catch (Exception e) {
             e.printStackTrace();
+            System.err.println("[error] Prediction failed: " + e);
+            Main.exitCode = 1;
         }
     }
 

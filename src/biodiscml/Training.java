@@ -465,6 +465,8 @@ public class Training {
             //EXECUTE IN PARRALLEL
             System.out.println("Total classifiers to test: " + alClassifiers.size());
 
+            // models that worked, to detect a run where all of them failed
+            AtomicInteger trainedModels = new AtomicInteger();
             if (parrallel) {
                 // results are written as soon as each model is done (so that an
                 // interrupted run can be resumed), then the file is rewritten in
@@ -484,6 +486,9 @@ public class Training {
                     if (s == null) {
                         s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
                     }
+                    if (!isFailedModel(s)) {
+                        trainedModels.incrementAndGet();
+                    }
                     if (!isFailedModel(s) || Main.printFailedModels) {
                         outputs[i] = s;
                         synchronized (pw) {
@@ -501,6 +506,7 @@ public class Training {
                         s = "ERROR\t" + classif[0] + " " + classif[1] + " | " + classif[3] + " | no result";
                     }
                     if (!isFailedModel(s)) {
+                        trainedModels.incrementAndGet();
                         pw.println(s);
                     } else if (Main.printFailedModels) {
                         pw.println(s);
@@ -515,11 +521,17 @@ public class Training {
             //END
             System.out.println("Total model tested: " + cptPassed + "/" + alClassifiers.size()
                     + ", including " + cptFailed + " incompatible models");
+            if (!alClassifiers.isEmpty() && trainedModels.get() == 0) {
+                System.err.println("[error] None of the " + alClassifiers.size() + " models could be trained");
+                Main.exitCode = 1;
+            }
 
         } catch (Exception e) {
             if (Main.debug) {
                 e.printStackTrace();
             }
+            System.err.println("[error] Training stopped: " + e);
+            Main.exitCode = 1;
             System.out.println("Total model tested: " + cptPassed + "/" + alClassifiers.size()
                     + ", including " + cptFailed + " incompatible models");
             pw.close();
@@ -528,6 +540,8 @@ public class Training {
             if (Main.debug) {
                 err.printStackTrace();
             }
+            System.err.println("[error] Training stopped: " + err);
+            Main.exitCode = 1;
             System.out.println("Total model tested: " + cptPassed + "/" + alClassifiers.size()
                     + ", including " + cptFailed + " incompatible models");
             pw.close();

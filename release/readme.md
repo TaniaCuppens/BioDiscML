@@ -82,6 +82,9 @@ reported. The last line of classifiers.conf is read even without a final
 newline. cpus values below 1 mean 1. -help works with any Java version.
 - Training. Models whose options contain the word error (e.g. the SquaredError 
 loss of MLPClassifier) are no longer discarded as failed models.
+- Errors. BioDiscML exits with code 1 when it fails (configuration errors, no 
+model trained or selected, a best model or a prediction that failed...), so 
+that schedulers and pipelines see the failure.
 
 ## Requirements
 JAVA 8 (https://www.java.com/en/download/)
