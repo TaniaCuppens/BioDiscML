@@ -103,7 +103,7 @@ public class BestModelSelectionAndReport {
 
             String sign = " >= ";
             String metric = Main.bestModelsSortingMetric.toUpperCase();
-            //in case of error rates (RMSE, BER...), we want the minimum value instead of the maximal one
+            //in case of error rates (RMSE, BER, .632+...), we want the minimum value instead of the maximal one
             boolean metricToMinimize = (metric.contains("RMSE")
                     || metric.contains("BER")
                     || metric.contains("FPR")
@@ -111,7 +111,8 @@ public class BestModelSelectionAndReport {
                     || metric.contains("FDR")
                     || metric.contains("MAE")
                     || metric.contains("RAE")
-                    || metric.contains("RRSE"));
+                    || metric.contains("RRSE")
+                    || metric.contains(".632"));
             if (metricToMinimize) {
                 sign = " <= ";
             }
