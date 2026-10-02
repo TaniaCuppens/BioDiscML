@@ -70,6 +70,9 @@ public class BestModelSelectionAndReport {
         }
         //Read results file
         boolean classification = type.equals("classification");
+        if (Main.combineModels) {
+            checkCombinationRule(classification);
+        }
 
         try {
             BufferedReader br = new BufferedReader(new FileReader(predictionsResultsFile));
@@ -1369,6 +1372,25 @@ public class BestModelSelectionAndReport {
             }
         }
 
+    }
+
+    /**
+     * Stop with an error if Weka's Vote cannot combine the models with the
+     * combination rule: MAJ and PROD need a nominal class, MED a numeric
+     * class (Weka fails with "Vote: Cannot handle binary class" otherwise)
+     *
+     * @param classification
+     */
+    private static void checkCombinationRule(boolean classification) {
+        java.util.List<String> rules = classification
+                ? java.util.Arrays.asList("AVG", "PROD", "MAJ", "MIN", "MAX")
+                : java.util.Arrays.asList("AVG", "MED", "MIN", "MAX");
+        if (!rules.contains(Main.combinationRule)) {
+            System.err.println("[error] combinationRule=" + Main.combinationRule + " cannot be used for "
+                    + (classification ? "classification" : "regression") + ". Available rules: " + rules
+                    + (Main.combinationRule.equals("MED") ? " (MED, the median, only exists for regression)" : ""));
+            System.exit(1);
+        }
     }
 
     /**

@@ -85,6 +85,8 @@ loss of MLPClassifier) are no longer discarded as failed models.
 - Errors. BioDiscML exits with code 1 when it fails (configuration errors, no 
 model trained or selected, a best model or a prediction that failed...), so 
 that schedulers and pipelines see the failure.
+- combineModels. The combination rule is checked: MED (median) only works for 
+regression, MAJ and PROD only for classification.
 
 ## Requirements
 JAVA 8 (https://www.java.com/en/download/)
