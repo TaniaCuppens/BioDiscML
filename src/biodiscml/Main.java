@@ -176,6 +176,21 @@ public class Main {
 
         //set number of max cpus to use
         if (!cpus.equals("max")) {
+            // with a parallelism of 0, the common pool has no worker thread and,
+            // with Java 8, a parallel stream can wait forever for a task that
+            // only a worker would run (observed in -bestmodel, when retrieving
+            // correlated features): use 1, i.e. run sequentially
+            try {
+                if (Integer.parseInt(cpus) < 1) {
+                    System.err.println("[warning] cpus=" + cpus + " is not a valid number of cpus: 1 is used");
+                    cpus = "1";
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("[warning] cpus=" + cpus + " is not a number (or max): max is used");
+                cpus = "max";
+            }
+        }
+        if (!cpus.equals("max")) {
             System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", cpus);
         }
 
