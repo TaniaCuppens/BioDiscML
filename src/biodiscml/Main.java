@@ -121,6 +121,18 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         System.out.println("#### BioDiscML " + VERSION + " ####\n");
+        // -version and -help work with any java version
+        for (String arg : args) {
+            String a = arg.trim().replaceFirst("^-+", "");
+            if (a.equals("version")) {
+                System.out.println("BioDiscML " + VERSION);
+                System.exit(0);
+            }
+            if (a.equals("help")) {
+                System.out.println("Read readme.md file or https://github.com/mickaelleclercq/BioDiscML");
+                System.exit(0);
+            }
+        }
         // check java version
         String version = System.getProperty("java.version");
         if (!version.contains("1.8")) {
