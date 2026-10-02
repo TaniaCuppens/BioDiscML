@@ -1811,6 +1811,11 @@ public class Weka_module {
 
             } else {
                 for (String s : model.toString().split("\n")) {
+                    // only the first header: a FilteredClassifier given in
+                    // ccmd prints its own header after it
+                    if (s.startsWith("@data") && !al.isEmpty()) {
+                        break;
+                    }
                     if (s.startsWith("@attribute")) {
                         if (s.split(" ")[1].equals("class")) {
                             al.add("class");
@@ -1869,6 +1874,11 @@ public class Weka_module {
         try {
             //load model
             for (String s : model.toString().split("\n")) {
+                // only the first header: a FilteredClassifier given in ccmd
+                // prints its own header after it
+                if (s.startsWith("@data") && !al.isEmpty()) {
+                    break;
+                }
                 if (s.startsWith("@attribute '") && s.endsWith("numeric")) {
                     s = s.replace("@attribute '", "").trim();
                     s = s.substring(0, s.lastIndexOf("'"));
