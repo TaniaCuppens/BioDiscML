@@ -392,16 +392,20 @@ public class Training {
             }
 
         }
-        //warn about unknown optimizers: all the models using them would fail
+        //skip the models with an unknown optimizer: the stepwise searches
+        //would fail, and the topX and all searches would be labelled with it
         HashMap<String, String> hmUnknownOptimizers = new HashMap<>();
-        for (String[] classif : alClassifiers) {
-            if (!KNOWN_OPTIMIZERS.contains(classif[2].toLowerCase().trim())) {
-                hmUnknownOptimizers.put(classif[2], "");
+        for (int i = 0; i < alClassifiers.size(); i++) {
+            String optimizer = alClassifiers.get(i)[2];
+            if (!KNOWN_OPTIMIZERS.contains(optimizer.toLowerCase().trim())) {
+                hmUnknownOptimizers.put(optimizer, "");
+                alClassifiers.remove(i);
+                i--;
             }
         }
         for (String unknownOptimizer : hmUnknownOptimizers.keySet()) {
             System.err.println("[warning] Unknown optimizer " + unknownOptimizer
-                    + ": the models using it will fail. Available optimizers: " + KNOWN_OPTIMIZERS);
+                    + ": the models using it are skipped. Available optimizers: " + KNOWN_OPTIMIZERS);
         }
 
         //resume training, remove from alClassifier all classifiers already trained
