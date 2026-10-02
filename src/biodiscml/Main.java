@@ -340,6 +340,9 @@ public class Main {
             } else if (doClassification) {
                 isClassification = true;
             }
+            // printed here: they are only known once the config file is read
+            System.out.println("Merging ID: " + mergingID);
+            System.out.println("Prediction type: " + (isClassification ? "Classification" : "Regression"));
             if (modelFile.isEmpty()) {
                 System.err.println("[error] No model file have been provided (Set a modelFile in config file)");
                 System.exit(1);
@@ -483,13 +486,7 @@ public class Main {
 
         if (predictNewData) {
             System.out.println("#### Mode: Prediction");
-            System.out.println("Merging ID: " + mergingID);
             System.out.println("Configuration file: " + configFile);
-            if (isClassification) {
-                System.out.println("Prediction type: Classification");
-            } else {
-                System.out.println("Prediction type: Regression");
-            }
         } else if (training) {
             System.out.println("#### Mode: Training");
         } else if (trainingBestModel) {
