@@ -2895,18 +2895,63 @@ public class Weka_module {
      * @return index of the positive class
      */
     public static int getPositiveClassIndex(Attribute classAttribute) {
-        if (!Main.positiveClass.isEmpty()) {
-            int i = classAttribute.indexOfValue(Main.positiveClass);
-            if (i >= 0) {
-                return i;
+        int i = indexOfPositiveClassOption(classAttribute);
+        if (i >= 0) {
+            return i;
+        }
+        i = indexOfTrueValue(classAttribute);
+        if (i >= 0) {
+            return i;
+        }
+        return 0;
+    }
+
+    /**
+     * @param classAttribute
+     * @return index of the class value set by the positiveClass option, -1 if
+     * the option is not set or matches no class value. The value is matched
+     * as is, then ignoring case, then with spaces replaced by _ (as in the
+     * class labels of the input files)
+     */
+    public static int indexOfPositiveClassOption(Attribute classAttribute) {
+        String wanted = Main.positiveClass.trim();
+        if (wanted.isEmpty()) {
+            return -1;
+        }
+        int i = classAttribute.indexOfValue(wanted);
+        if (i >= 0) {
+            return i;
+        }
+        for (int j = 0; j < classAttribute.numValues(); j++) {
+            String value = classAttribute.value(j);
+            if (value.equalsIgnoreCase(wanted) || value.equalsIgnoreCase(wanted.replace(" ", "_"))) {
+                return j;
             }
         }
+        return -1;
+    }
+
+    /**
+     * @param classAttribute
+     * @return index of the class value "true" (any case) or "1", -1 if none
+     */
+    private static int indexOfTrueValue(Attribute classAttribute) {
         for (int i = 0; i < classAttribute.numValues(); i++) {
             if (classAttribute.value(i).equalsIgnoreCase("true") || classAttribute.value(i).equals("1")) {
                 return i;
             }
         }
-        return 0;
+        return -1;
+    }
+
+    /**
+     * @param classAttribute
+     * @return true if the positive class is chosen by default from the order
+     * of the class values (positiveClass not set or not matching, and no
+     * value true or 1)
+     */
+    public static boolean isPositiveClassArbitrary(Attribute classAttribute) {
+        return indexOfPositiveClassOption(classAttribute) < 0 && indexOfTrueValue(classAttribute) < 0;
     }
 
     /**

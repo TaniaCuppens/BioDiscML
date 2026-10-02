@@ -531,13 +531,18 @@ public class Training {
         try {
             Attribute classAttribute = data.attribute(data.numAttributes() - 1);
             if (classAttribute.isNominal() && classAttribute.numValues() == 2) {
-                if (!Main.positiveClass.isEmpty() && classAttribute.indexOfValue(Main.positiveClass) < 0) {
+                String positive = classAttribute.value(Weka_module.getPositiveClassIndex(classAttribute));
+                if (!Main.positiveClass.trim().isEmpty() && Weka_module.indexOfPositiveClassOption(classAttribute) < 0) {
                     System.err.println("[warning] positiveClass " + Main.positiveClass
-                            + " is not a value of the class " + classAttribute);
+                            + " is not a value of the class " + classAttribute + ": " + positive + " is used instead");
+                }
+                if (Weka_module.isPositiveClassArbitrary(classAttribute)) {
+                    System.err.println("[warning] positiveClass is not set and the class has no value true or 1: "
+                            + positive + " (the first class value) is used as positive class for SEN, SPE, FPR, FNR, "
+                            + "PPV, FDR, Fscore and AUPRC. This choice is arbitrary: set positiveClass in the config file");
                 }
                 System.out.println("Positive class (for SEN, SPE, FPR, FNR, PPV, FDR, Fscore, AUPRC): "
-                        + classAttribute.value(Weka_module.getPositiveClassIndex(classAttribute))
-                        + ". Use the positiveClass option to choose it.");
+                        + positive + ". Use the positiveClass option to choose it.");
             } else if (classAttribute.isNominal()) {
                 System.out.println("More than 2 classes: SEN, SPE, FPR, FNR, PPV, FDR, Fscore and AUPRC "
                         + "are averages weighted by class size");
