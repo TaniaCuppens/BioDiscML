@@ -419,7 +419,7 @@ public class Main {
                 System.exit(0);
             }
             if (s.contains("=")) {
-                setOption(s.split("=")[0], s.split("=")[1]);
+                setOption(s.substring(0, s.indexOf("=")).trim(), s.substring(s.indexOf("=") + 1).trim());
             }
             // get config
             if (s.startsWith("config") && configFile.isEmpty()) {
@@ -516,15 +516,25 @@ public class Main {
         String line = null;
         try {
             BufferedReader br = new BufferedReader(new FileReader(configFile));
-            while (br.ready()) {
-                line = br.readLine();
-                if (!line.startsWith("#") && !line.trim().isEmpty()) {
-                    String option = line.split("=")[0].trim();
-                    String value = line.split("=")[1].trim();
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().startsWith("#") && !line.trim().isEmpty()) {
+                    if (!line.contains("=")) {
+                        System.err.println("[warning] Line ignored in config file (no option=value): " + line);
+                        continue;
+                    }
+                    // split at the first '=' only: values can contain '='
+                    String option = line.substring(0, line.indexOf("=")).trim();
+                    // remove end of line comments ("value # comment")
+                    String value = line.substring(line.indexOf("=") + 1).replaceAll("\\s+#.*$", "").trim();
+                    if (value.isEmpty()) {
+                        System.err.println("[warning] No value for option " + option + " in config file: default value kept");
+                        continue;
+                    }
                     //System.out.println(option + ":" + value);
                     setOption(option, value);
                 }
             }
+            br.close();
 
         } catch (Exception e) {
             System.err.println("Parsing error in config file at line " + line);
