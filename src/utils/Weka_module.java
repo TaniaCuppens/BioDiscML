@@ -289,8 +289,8 @@ public class Weka_module {
             Boolean classification) {
 
         try {
-            // load data
-            Instances data = myData;
+            // load data. Work on a copy: myData is shared by the training threads
+            Instances data = new Instances(myData);
             //get a sample of instances
             //// randomize data
             data.randomize(new Random());
