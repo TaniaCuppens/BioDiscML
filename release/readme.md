@@ -45,6 +45,43 @@ training set (TRAIN_* columns) are therefore optimistic. Only the scores on the
 held-out test set (TEST_* columns, with sampling=true or a validationFile) are 
 unbiased estimates of the performance on new data.
 
+## Changes in 1.8.15
+Results of 1.8.15 differ from those of previous versions. Main changes:
+- Metrics. For a binary class, SEN, SPE, FPR, FNR, PPV, FDR, F-score and AUPRC 
+are those of the positive class (option positiveClass), not class-weighted 
+averages. A warning is printed when the positive class is chosen arbitrarily 
+(positiveClass not set and no class value true or 1), and the positive class is 
+written in the header of the details.txt files. The .632+ estimate is computed 
+as described by Efron and Tibshirani (1997); its column is empty when 
+bootstrap=false and NaN when it cannot be computed. Averages and standard 
+deviations ignore undefined (NaN) values. Undefined and infinite values are 
+written NaN and Infinity, and numbers never have a grouping separator.
+- Search. FB and BF now run their backward step (they were identical to F and 
+B since 1.8.12), so they take longer. maxNumberOfFeaturesInModel is enforced.
+- Reproducibility. All random number generators are seeded (option seed, 
+default 1), and the results file of a parallel run is rewritten in the order 
+of the queue at the end of the run (the lines of a resumed run come after 
+those of the previous run). Repeated holdout and bootstrap samples are 
+stratified by class (then shuffled). The short test uses about 5% of each 
+class (at least 5 instances per class, 10 for a regression), so that more 
+models pass it on small datasets.
+- -bestmodel sorts the models numerically (error rates, including the .632+ 
+columns, in ascending order), the thresholds are inclusive, the metric name is 
+not case-sensitive, and a failing model does not stop the others. -predict 
+works for regression.
+- Input files. newDataFile is only used by -predict (it was also used as a 
+validation file at training). Validation rows are aligned on the training 
+columns by name (with or without the file prefixes); the run stops if no 
+feature is found. Instances with an empty, ?, NA or N/A class are ignored. 
+With several input files, IDs are matched ignoring case and the class is taken 
+from the first file (in the order of the config file) that contains it.
+- Config file. Values are split at the first '=', end-of-line comments 
+(value # comment) are removed, booleans accept true/false, yes/no, 1/0 and 
+on/off, empty values are ignored (default kept), and unknown options are 
+reported. The last line of classifiers.conf is read even without a final 
+newline. cpus values below 1 mean 1. -version prints the version, and -help 
+and -version work with any Java version.
+
 ## Requirements
 JAVA 8 (https://www.java.com/en/download/)
 
@@ -242,8 +279,9 @@ For a binary class, the sensitivity (SEN), specificity (SPE), FPR, FNR, PPV, FDR
 F-score and AUPRC are those of the positive class (option positiveClass, see 
 config.conf): SEN = TP/(TP+FN), SPE = TN/(TN+FP), PPV = TP/(TP+FP), 
 FDR = 1 - PPV. With more than two classes they are averages weighted by class 
-size (the weighted sensitivity is then equal to the accuracy). Before version 1.8.15, they were always class-weighted averages (for a 
-binary class, SEN was then equal to ACC).
+size (the weighted sensitivity is then equal to the accuracy). Before version 
+1.8.15, they were always class-weighted averages (for a binary class, SEN was 
+then equal to ACC).
 Repeated holdout (66/34 split) and bootstrap samples are stratified by class. 
 The .632+ columns are error rates (Efron and Tibshirani, 1997).
 All random number generators are seeded (option seed): two runs with the same 
