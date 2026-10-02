@@ -46,10 +46,11 @@ public class Main {
     //config
     public static String mergingID = "Instance";
 
-    //source files
-    public static HashMap<String, String> hmTrainFiles = new HashMap<>();//filename, identifier prefix
-    public static HashMap<String, String> hmNewDataFiles = new HashMap<>();//filename, identifier prefix (-predict)
-    public static HashMap<String, String> hmValidationFiles = new HashMap<>();//filename, identifier prefix (-train)
+    //source files, in the order of the configuration (the class is taken
+    //from the first file that contains it)
+    public static HashMap<String, String> hmTrainFiles = new LinkedHashMap<>();//filename, identifier prefix
+    public static HashMap<String, String> hmNewDataFiles = new LinkedHashMap<>();//filename, identifier prefix (-predict)
+    public static HashMap<String, String> hmValidationFiles = new LinkedHashMap<>();//filename, identifier prefix (-train)
 
     //options
     public static Boolean doClassification = false;

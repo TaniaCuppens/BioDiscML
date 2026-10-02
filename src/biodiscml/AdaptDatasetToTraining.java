@@ -154,7 +154,14 @@ public class AdaptDatasetToTraining {
             TableObject tbo = new TableObject(readTable(file, separator));
             //locate class
             if (tbo.containsClass(theClass)) {
-                classIndex = i;
+                if (classIndex == -1) {
+                    classIndex = i;
+                } else {
+                    // the class must not be used as a feature
+                    System.out.println("[warning] Class " + theClass + " also found in " + file
+                            + ". Using the one of " + files[classIndex] + ", ignoring this one");
+                    tbo.hmData.remove(theClass);
+                }
             }
             al_tables.add(tbo);
         }
