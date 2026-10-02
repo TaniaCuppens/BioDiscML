@@ -201,22 +201,30 @@ public class BestModelSelectionAndReport {
             //perform evaluations and create models
             PrintWriter pw = null;
             for (Object classifier : alBestClassifiers) {
-                // initialize weka module
-                if (classification) {
-                    init(featureSelectionFile.replace("infoGain.csv", "infoGain.arff"), classification);
-                    if (!positiveClassPrinted) {
-                        Training.printPositiveClass(weka.myData);
-                        positiveClassPrinted = true;
+                // one failing model must not stop the others
+                try {
+                    // initialize weka module
+                    if (classification) {
+                        init(featureSelectionFile.replace("infoGain.csv", "infoGain.arff"), classification);
+                        if (!positiveClassPrinted) {
+                            Training.printPositiveClass(weka.myData);
+                            positiveClassPrinted = true;
+                        }
+                    } else {
+                        init(featureSelectionFile.replace("RELIEFF.csv", "RELIEFF.arff"), classification);
                     }
-                } else {
-                    init(featureSelectionFile.replace("RELIEFF.csv", "RELIEFF.arff"), classification);
-                }
-                createBestModel(classifier, classification, pw, br, false);
+                    createBestModel(classifier, classification, pw, br, false);
 
-                if (Main.generateModelWithCorrelatedGenes) {
-                    init(trainFilName, classification);
-                    createBestModel(classifier, classification, pw, br, true);
-                    correlatedFeatures = null;
+                    if (Main.generateModelWithCorrelatedGenes) {
+                        init(trainFilName, classification);
+                        createBestModel(classifier, classification, pw, br, true);
+                        correlatedFeatures = null;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.err.println("[error] Unable to create the best model "
+                            + (classification ? ((classificationObject) classifier).identifier : ((regressionObject) classifier).identifier)
+                            + ". Going to the next one.");
                 }
             }
 
@@ -262,6 +270,9 @@ public class BestModelSelectionAndReport {
                     + co.optimizer.toUpperCase().trim() + "_" + co.mode + corrMode;
             Object trainingOutput = weka.trainClassifier(co.classifier, co.options,
                     co.featuresSeparatedByCommas, classification, 10);
+            if (!(trainingOutput instanceof Weka_module.ClassificationResultsObject)) {
+                throw new Exception("Training failed: " + trainingOutput);
+            }
             cr = (Weka_module.ClassificationResultsObject) trainingOutput;
 
             classifierName = co.classifier + "_" + co.printOptions() + "_"
@@ -284,6 +295,9 @@ public class BestModelSelectionAndReport {
                     + ro.optimizer.toUpperCase().trim() + "_" + ro.mode;
             Object trainingOutput = weka.trainClassifier(ro.classifier, ro.options,
                     ro.featuresSeparatedByCommas, classification, 10);
+            if (!(trainingOutput instanceof Weka_module.RegressionResultsObject)) {
+                throw new Exception("Training failed: " + trainingOutput);
+            }
             rr = (Weka_module.RegressionResultsObject) trainingOutput;
 
             classifierName = ro.classifier + "_" + ro.printOptions() + "_"
@@ -376,20 +390,29 @@ public class BestModelSelectionAndReport {
         if (Main.loocv) {
             System.out.println("# LOOCV (Leave-One-Out cross validation) performance");
             pw.println("\n# LOOCV (Leave-One-Out Cross Validation) performance");
+            Object loocvOutput;
             if (classification) {
-                Weka_module.ClassificationResultsObject cr2 = (Weka_module.ClassificationResultsObject) weka.trainClassifier(co.classifier, co.options,
+                loocvOutput = weka.trainClassifier(co.classifier, co.options,
                         co.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            } else {
+                loocvOutput = weka.trainClassifier(ro.classifier, ro.options,
+                        ro.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            }
+            if (loocvOutput instanceof Weka_module.ClassificationResultsObject) {
+                Weka_module.ClassificationResultsObject cr2 = (Weka_module.ClassificationResultsObject) loocvOutput;
                 System.out.println(cr2.toStringDetails());
                 alMCCs.add(Double.valueOf(cr2.MCC));
                 alMAEs.add(Double.valueOf(cr2.MAE));
                 pw.println(cr2.toStringDetails().replace("[score_training] ", ""));
-            } else {
-                Weka_module.RegressionResultsObject rr2 = (Weka_module.RegressionResultsObject) weka.trainClassifier(ro.classifier, ro.options,
-                        ro.featuresSeparatedByCommas, classification, weka.myData.numInstances());
+            } else if (loocvOutput instanceof Weka_module.RegressionResultsObject) {
+                Weka_module.RegressionResultsObject rr2 = (Weka_module.RegressionResultsObject) loocvOutput;
                 System.out.println(rr2.toStringDetails());
                 alCCs.add(Double.valueOf(rr2.CC));
                 alMAEs.add(Double.valueOf(rr2.MAE));
                 pw.println(rr2.toStringDetails().replace("[score_training] ", ""));
+            } else {
+                System.err.println("[error] LOOCV failed: " + loocvOutput);
+                pw.println("LOOCV failed");
             }
             pw.flush();
         }
@@ -406,6 +429,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.ClassificationResultsObject cro
                         = (Weka_module.ClassificationResultsObject) weka.trainClassifierHoldOutValidation(co.classifier, co.options,
                                 co.featuresSeparatedByCommas, classification, i);
+                if (cro == null) {
+                    continue; // failed repetition
+                }
                 eproRHTrain.alAUCs.add(Double.valueOf(cro.AUC));
                 eproRHTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                 eproRHTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -435,6 +461,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.RegressionResultsObject rro
                         = (Weka_module.RegressionResultsObject) weka.trainClassifierHoldOutValidation(ro.classifier, ro.options,
                                 ro.featuresSeparatedByCommas, classification, i);
+                if (rro == null) {
+                    continue; // failed repetition
+                }
                 eproRHTrain.alCCs.add(Double.valueOf(rro.CC));
                 eproRHTrain.alMAEs.add(Double.valueOf(rro.MAE));
                 eproRHTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -460,6 +489,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.ClassificationResultsObject cro
                         = (Weka_module.ClassificationResultsObject) weka.trainClassifierBootstrap(co.classifier, co.options,
                                 co.featuresSeparatedByCommas, classification, i);
+                if (cro == null) {
+                    continue; // failed repetition
+                }
                 eproBSTrain.alAUCs.add(Double.valueOf(cro.AUC));
                 eproBSTrain.alpAUCs.add(Double.valueOf(cro.pAUC));
                 eproBSTrain.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -501,6 +533,9 @@ public class BestModelSelectionAndReport {
                 Weka_module.RegressionResultsObject rro
                         = (Weka_module.RegressionResultsObject) weka.trainClassifierBootstrap(ro.classifier, ro.options,
                                 ro.featuresSeparatedByCommas, classification, i);
+                if (rro == null) {
+                    continue; // failed repetition
+                }
                 eproBSTrain.alCCs.add(Double.valueOf(rro.CC));
                 eproBSTrain.alMAEs.add(Double.valueOf(rro.MAE));
                 eproBSTrain.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -632,6 +667,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka3.trainClassifierHoldOutValidation(co.classifier, co.options,
                                             null, classification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                             eproRHTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproRHTrainTest.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -664,6 +702,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka3.trainClassifierHoldOutValidation(ro.classifier, ro.options,
                                             null, classification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproRHTrainTest.alCCs.add(Double.valueOf(rro.CC));
                             eproRHTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                             eproRHTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
@@ -720,6 +761,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.ClassificationResultsObject cro
                                     = (Weka_module.ClassificationResultsObject) weka4.trainClassifierBootstrap(co.classifier, co.options,
                                             null, classification, i);
+                            if (cro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrainTest.alAUCs.add(Double.valueOf(cro.AUC));
                             eproBSTrainTest.alpAUCs.add(Double.valueOf(cro.pAUC));
                             eproBSTrainTest.alAUPRCs.add(Double.valueOf(cro.AUPRC));
@@ -763,6 +807,9 @@ public class BestModelSelectionAndReport {
                             Weka_module.RegressionResultsObject rro
                                     = (Weka_module.RegressionResultsObject) weka4.trainClassifierBootstrap(ro.classifier, ro.options,
                                             null, classification, i);
+                            if (rro == null) {
+                                continue; // failed repetition
+                            }
                             eproBSTrainTest.alCCs.add(Double.valueOf(rro.CC));
                             eproBSTrainTest.alMAEs.add(Double.valueOf(rro.MAE));
                             eproBSTrainTest.alRMSEs.add(Double.valueOf(rro.RMSE));
