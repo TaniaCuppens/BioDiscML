@@ -36,6 +36,9 @@ public class TestingAndEvaluate {
         weka.csvToArff(Main.isClassification);
         getClassesAndFeaturesFromModel(modelFile, weka);
         weka.setDataFromArff();
+        if (Main.isClassification) {
+            Training.printPositiveClass(weka.myData);
+        }
 
         Weka_module.ClassificationResultsObject cr = null;
         Weka_module.RegressionResultsObject rr = null;

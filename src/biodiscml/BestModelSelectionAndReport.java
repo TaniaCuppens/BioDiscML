@@ -38,6 +38,7 @@ public class BestModelSelectionAndReport {
     public static HashMap<String, Integer> hmResultsHeaderNames = new HashMap<>();
     public static HashMap< Integer, String> hmResultsHeaderIndexes = new HashMap<>();
     public static DecimalFormat df = utils.newDecimalFormat();
+    private static boolean positiveClassPrinted = false;
     public static String trainFileName;
     public static String featureSelectionFile;
     public static String predictionsResultsFile;
@@ -203,6 +204,10 @@ public class BestModelSelectionAndReport {
                 // initialize weka module
                 if (classification) {
                     init(featureSelectionFile.replace("infoGain.csv", "infoGain.arff"), classification);
+                    if (!positiveClassPrinted) {
+                        Training.printPositiveClass(weka.myData);
+                        positiveClassPrinted = true;
+                    }
                 } else {
                     init(featureSelectionFile.replace("RELIEFF.csv", "RELIEFF.arff"), classification);
                 }
@@ -308,6 +313,11 @@ public class BestModelSelectionAndReport {
             pw.println("# Classifier: " + co.classifier + " " + co.options
                     + "\n# Optimizer: " + co.optimizer.toUpperCase()
                     + "\n# Feature search mode: " + co.mode);
+            weka.core.Attribute classAttribute = weka.myData.attribute(weka.myData.numAttributes() - 1);
+            if (classAttribute.isNominal() && classAttribute.numValues() == 2) {
+                pw.println("# Positive class (SEN, SPE, FPR, FNR, PPV, FDR, Fscore, AUPRC): "
+                        + classAttribute.value(Weka_module.getPositiveClassIndex(classAttribute)));
+            }
         } else {
             pw.println("# ID: " + ro.identifier);
             System.out.println("# ID: " + ro.identifier);

@@ -2432,22 +2432,42 @@ public class Weka_module {
             }
 
             //measures
+            double[][] m = eval.confusionMatrix();
             ACC = Utils.doubleToString(eval.pctCorrect() / 100, 12, 4).trim();
             MCC = Utils.doubleToString(eval.weightedMatthewsCorrelation(), 12, 4).trim();
-            TPR = Utils.doubleToString(eval.weightedTruePositiveRate(), 12, 4).trim();//sensitivity
-            TNR = Utils.doubleToString(eval.weightedTrueNegativeRate(), 12, 4).trim();//specificity
-            FPR = Utils.doubleToString(eval.weightedFalsePositiveRate(), 12, 4).trim();
-            FNR = Utils.doubleToString(eval.weightedFalseNegativeRate(), 12, 4).trim();
             AUC = Utils.doubleToString(eval.weightedAreaUnderROC(), 12, 4).trim();
-            AUPRC = Utils.doubleToString(eval.weightedAreaUnderPRC(), 12, 4).trim();
-            Fscore = Utils.doubleToString(eval.weightedFMeasure(), 12, 4).trim();
             kappa = Utils.doubleToString(eval.kappa(), 12, 4).trim();
             MAE = Utils.doubleToString(eval.meanAbsoluteError(), 12, 4).trim();
-            precision = Utils.doubleToString(eval.weightedPrecision(), 12, 4).trim();
-            FDR = Utils.doubleToString(1 - eval.weightedPrecision(), 12, 4).trim();
-            recall = Utils.doubleToString(eval.weightedRecall(), 12, 4).trim();
+            double tpr, tnr;
+            if (m.length == 2) {
+                // binary class: sensitivity, specificity, PPV, etc. of the
+                // positive class. (The class-weighted averages are useless
+                // here: the weighted TPR is the accuracy.)
+                int p = getPositiveClassIndex(eval.getHeader().classAttribute());
+                tpr = eval.truePositiveRate(p);
+                tnr = eval.trueNegativeRate(p);
+                FPR = Utils.doubleToString(eval.falsePositiveRate(p), 12, 4).trim();
+                FNR = Utils.doubleToString(eval.falseNegativeRate(p), 12, 4).trim();
+                AUPRC = Utils.doubleToString(eval.areaUnderPRC(p), 12, 4).trim();
+                Fscore = Utils.doubleToString(eval.fMeasure(p), 12, 4).trim();
+                precision = Utils.doubleToString(eval.precision(p), 12, 4).trim();
+                FDR = Utils.doubleToString(1 - eval.precision(p), 12, 4).trim();
+                recall = Utils.doubleToString(eval.recall(p), 12, 4).trim();
+            } else {
+                // more than 2 classes: averages weighted by class size
+                tpr = eval.weightedTruePositiveRate();
+                tnr = eval.weightedTrueNegativeRate();
+                FPR = Utils.doubleToString(eval.weightedFalsePositiveRate(), 12, 4).trim();
+                FNR = Utils.doubleToString(eval.weightedFalseNegativeRate(), 12, 4).trim();
+                AUPRC = Utils.doubleToString(eval.weightedAreaUnderPRC(), 12, 4).trim();
+                Fscore = Utils.doubleToString(eval.weightedFMeasure(), 12, 4).trim();
+                precision = Utils.doubleToString(eval.weightedPrecision(), 12, 4).trim();
+                FDR = Utils.doubleToString(1 - eval.weightedPrecision(), 12, 4).trim();
+                recall = Utils.doubleToString(eval.weightedRecall(), 12, 4).trim();
+            }
+            TPR = Utils.doubleToString(tpr, 12, 4).trim();//sensitivity
+            TNR = Utils.doubleToString(tnr, 12, 4).trim();//specificity
 
-            double[][] m = eval.confusionMatrix();
             matrix = "";
             for (int i = 0; i < m.length; i++) {
                 matrix += "[";
@@ -2708,6 +2728,75 @@ public class Weka_module {
             }
             return toreturn.toString();
         }
+    }
+
+    /**
+     * Index of the positive class of a binary class attribute, used for the
+     * sensitivity, specificity, PPV, FDR, F-score and AUPRC: the value set by
+     * the positiveClass option if any, else the value "true" (any case) or
+     * "1" if present, else the first value of the class attribute.
+     *
+     * @param classAttribute
+     * @return index of the positive class
+     */
+    public static int getPositiveClassIndex(Attribute classAttribute) {
+        int i = indexOfPositiveClassOption(classAttribute);
+        if (i >= 0) {
+            return i;
+        }
+        i = indexOfTrueValue(classAttribute);
+        if (i >= 0) {
+            return i;
+        }
+        return 0;
+    }
+
+    /**
+     * @param classAttribute
+     * @return index of the class value set by the positiveClass option, -1 if
+     * the option is not set or matches no class value. The value is matched
+     * as is, then ignoring case, then with spaces replaced by _ (as in the
+     * class labels of the input files)
+     */
+    public static int indexOfPositiveClassOption(Attribute classAttribute) {
+        String wanted = Main.positiveClass.trim();
+        if (wanted.isEmpty()) {
+            return -1;
+        }
+        int i = classAttribute.indexOfValue(wanted);
+        if (i >= 0) {
+            return i;
+        }
+        for (int j = 0; j < classAttribute.numValues(); j++) {
+            String value = classAttribute.value(j);
+            if (value.equalsIgnoreCase(wanted) || value.equalsIgnoreCase(wanted.replace(" ", "_"))) {
+                return j;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * @param classAttribute
+     * @return index of the class value "true" (any case) or "1", -1 if none
+     */
+    private static int indexOfTrueValue(Attribute classAttribute) {
+        for (int i = 0; i < classAttribute.numValues(); i++) {
+            if (classAttribute.value(i).equalsIgnoreCase("true") || classAttribute.value(i).equals("1")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * @param classAttribute
+     * @return true if the positive class is chosen by default from the order
+     * of the class values (positiveClass not set or not matching, and no
+     * value true or 1)
+     */
+    public static boolean isPositiveClassArbitrary(Attribute classAttribute) {
+        return indexOfPositiveClassOption(classAttribute) < 0 && indexOfTrueValue(classAttribute) < 0;
     }
 
     /**

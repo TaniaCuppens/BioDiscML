@@ -111,6 +111,9 @@ public class Main {
     // seed of all random number generators (sampling, cross validations,
     // holdouts, bootstraps), so that two identical runs give identical results
     public static int seed = 1;
+    // positive class of a binary classification (sensitivity, specificity,
+    // PPV, FDR, F-score, AUPRC). Empty: see Weka_module.getPositiveClassIndex
+    public static String positiveClass = "";
 
     public static void main(String[] args) throws IOException {
         System.out.println("#### BioDiscML ####\n");
@@ -755,6 +758,9 @@ public class Main {
                 break;
             case "performShortTest":
                 performShortTest = Boolean.valueOf(value.trim());
+                break;
+            case "positiveClass":
+                positiveClass = value.trim();
                 break;
             case "seed":
                 seed = Integer.valueOf(value.trim());
