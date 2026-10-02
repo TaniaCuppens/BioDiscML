@@ -699,6 +699,7 @@ public class Training {
                     //add new attribute to the set of retainedAttributes
                     ao.addNewAttributeToRetainedAttributes(i);
                     Weka_module.ClassificationResultsObject oldcr = cr;
+                    Weka_module.RegressionResultsObject oldrr = rr;
                     //do feature selection by forward(-backward)
                     o = weka.trainClassifier(classifier, classifier_options,
                             ao.getRetainedAttributesIdClassInString(), isClassification, 10);
@@ -790,6 +791,7 @@ public class Training {
                         //back to previous attribute if no improvement with the new attribute and go to the next
                         ao.retainedAttributesOnly.remove(ao.retainedAttributesOnly.size() - 1);
                         cr = oldcr;
+                        rr = oldrr;
                     }
                 }
                 // no feature could be retained (e.g. undefined measure)
